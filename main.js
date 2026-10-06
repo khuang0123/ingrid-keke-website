@@ -27,29 +27,23 @@ float height(vec2 s){
   float d = length(s - m);
   h += sin(d*40. - t*3.) * exp(-d*9.) * .012;
 
-  // rippling rim along a rounded (superellipse) frame — smooth, no corner seams
-  vec2 hb = vec2(.5*res.x/res.y, .5) - .025;
-  vec2 a = abs(s) / hb;
-  float e = (pow(pow(a.x, 8.) + pow(a.y, 8.), 1./8.) - 1.) * .5;
-  e += .005 * sin(s.y*8. + tt*2.) + .005 * sin(s.x*7. - tt*1.6);
-  h += .07 * exp(-sabs(e, .00003) * 70.);
   return h;
 }
 
 vec3 env(vec3 r){
-  vec3 dark  = vec3(.16, .22, .26);
-  vec3 mid   = vec3(.48, .58, .62);
-  vec3 light = vec3(.80, .89, .92);
+  vec3 dark  = vec3(.30, .38, .42);
+  vec3 mid   = vec3(.54, .63, .66);
+  vec3 light = vec3(.76, .84, .87);
   float g = r.y*.85 + r.x*.4;
   vec3 c = mix(dark, mid, smoothstep(-.8, -.05, g));
   c = mix(c, light, smoothstep(.05, .7, g));
   // crisp soft-box highlights
-  c += vec3(1.)           * smoothstep(.90, .94, dot(r, normalize(vec3(-.55, .55, .62))));
-  c += vec3(.86, .97, 1.) * smoothstep(.92, .955, dot(r, normalize(vec3( .65,-.35, .65)))) * .8;
-  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 60.) * .8;   // thin horizon line
+  c += vec3(.95, 1., 1.)  * .45 * smoothstep(.90, .94, dot(r, normalize(vec3(-.55, .55, .62))));
+  c += vec3(.86, .97, 1.) * smoothstep(.92, .955, dot(r, normalize(vec3( .65,-.35, .65)))) * .35;
+  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 60.) * .35;   // thin horizon line
   // dark streaks that trace the flow
-  c *= 1. - .80 * exp(-abs(r.x + .26) * 22.);
-  c *= 1. - .60 * exp(-abs(r.y + .28) * 22.);
+  c *= 1. - .35 * exp(-abs(r.x + .26) * 22.);
+  c *= 1. - .25 * exp(-abs(r.y + .28) * 22.);
   return c;
 }
 
@@ -69,7 +63,7 @@ void main(){
   vec3 under = mix(vec3(.40, .62, .66), vec3(.82, .94, .95), refr.y);
 
   float slope = 1. - n.z;
-  float F = clamp(.78 + 3. * slope, 0., 1.);  // mostly liquid mirror, a little see-through
+  float F = clamp(.62 + 3. * slope, 0., 1.);  // gentle sheen, more see-through water
   vec3 col = mix(under, refl, F);
 
   col *= vec3(.94, 1., 1.04);                 // cool watery tint
