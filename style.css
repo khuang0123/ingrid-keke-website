@@ -22,7 +22,15 @@ body { min-height: 100vh; overflow-x: hidden; }
   will-change: transform;
   pointer-events: none;
 }
-.paper canvas { display: block; }
+.paper canvas, .weight canvas { display: block; }
+.weight {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  visibility: hidden;
+  will-change: transform;
+  pointer-events: none;
+}
 
 /* the page scrolls only to drive the paper */
 .scroll-space { height: 250vh; }

@@ -1,11 +1,15 @@
 /* ---------- 宣纸: a sheet of rice paper pulled up over the bronze as you scroll ----------
-   On it: a round bronze paperweight (镇纸) across the top, carved with the seal, and three
-   fashion croquis figures drawn in 毛笔 brush strokes. Everything is painted once into one
-   canvas (re-painted on resize); scrolling only slides it. */
+   A round bronze paperweight (镇纸) carved with the seal comes down from the top to rest
+   across it, and on the paper are three fashion croquis figures in 毛笔 brush strokes.
+   Paper and paperweight are each painted once into a canvas (re-painted on resize);
+   scrolling only slides them. */
 (function () {
   const paper = document.querySelector('.paper');
   const canvas = paper.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
+  const weight = document.querySelector('.weight');
+  const wcanvas = weight.querySelector('canvas');
+  const paperCtx = canvas.getContext('2d'), weightCtx = wcanvas.getContext('2d');
+  let ctx = paperCtx;                       // the canvas currently being painted
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---- small deterministic helpers ----
@@ -119,7 +123,7 @@
   // ---- the paper itself: warm, fibrous, with soft deckled edges ----
   function paperShape(x, y, w, h) {
     ctx.beginPath();
-    const j = (i, a) => (noise1(i * .35 + a) - .5) * 3 + (noise1(i * 2.1 + a) - .5) * 1.2;
+    const j = (i, a) => (noise1(i * .35 + a) - .5) * 1.6 + (noise1(i * 2.3 + a) - .5) * .9;
     const step = 6;
     for (let i = 0; i <= w / step; i++) ctx.lineTo(x + i * step, y + j(i, 3));
     for (let i = 0; i <= h / step; i++) ctx.lineTo(x + w + j(i, 9), y + i * step);
@@ -130,8 +134,9 @@
 
   function paintPaper(x, y, w, h) {
     ctx.save();
-    ctx.shadowColor = 'rgba(10, 6, 2, .55)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
-    paperShape(x, y, w, h); ctx.fillStyle = '#efe8d6'; ctx.fill();
+    // thin rice paper: a light shadow, and a hint of the bronze showing through
+    ctx.shadowColor = 'rgba(10, 6, 2, .32)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 5;
+    paperShape(x, y, w, h); ctx.fillStyle = 'rgba(240, 233, 216, .93)'; ctx.fill();
     ctx.restore();
     ctx.save(); paperShape(x, y, w, h); ctx.clip();
     for (let i = 0; i < 70; i++) {                                    // soft mottling
@@ -155,8 +160,8 @@
       ctx.fillRect(x + rnd() * w, y + rnd() * h, .6 + rnd(), .6 + rnd());
     }
     const edge = ctx.createLinearGradient(x, 0, x + w, 0);           // edges a touch darker
-    edge.addColorStop(0, 'rgba(120, 95, 60, .10)'); edge.addColorStop(.04, 'rgba(0,0,0,0)');
-    edge.addColorStop(.96, 'rgba(0,0,0,0)'); edge.addColorStop(1, 'rgba(120, 95, 60, .10)');
+    edge.addColorStop(0, 'rgba(120, 95, 60, .05)'); edge.addColorStop(.02, 'rgba(0,0,0,0)');
+    edge.addColorStop(.98, 'rgba(0,0,0,0)'); edge.addColorStop(1, 'rgba(120, 95, 60, .05)');
     ctx.fillStyle = edge; ctx.fillRect(x, y, w, h);
     ctx.restore();
   }
@@ -206,35 +211,44 @@
 
   // ---- layout + painting ----
   let geo = null;
+  function sizeCanvas(cv, c, w, h, dpr) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+  }
   function paint() {
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const vw = innerWidth, vh = innerHeight;
-    const pw = Math.min(vw * .9, 1100), ph = vh * 1.04;          // paper (runs off the bottom)
-    const mg = 60;                                               // room for the shadow
-    canvas.width = Math.round((pw + 2 * mg) * dpr); canvas.height = Math.round((ph + mg) * dpr);
-    canvas.style.width = (pw + 2 * mg) + 'px'; canvas.style.height = (ph + mg) + 'px';
+    const pw = Math.min(vw * .96, 1600), ph = vh * 1.04;         // paper (runs off the bottom)
+    const mg = 40;                                               // room for the shadow
+    sizeCanvas(canvas, paperCtx, pw + 2 * mg, ph + mg, dpr);
     paper.style.width = (pw + 2 * mg) + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, pw + 2 * mg, ph + mg);
     seed = 7;
 
     const x = mg, y = mg * .5;
+    ctx = paperCtx;
     paintPaper(x, y, pw, ph);
     const top = vh * .035;                                        // paper's resting gap from the top
-    geo = { top, offset: y };
-
-    // paperweight across the top centre
-    const D = Math.min(vh * .095, pw * .08);
-    paintRod(x + pw / 2, y + D * .95, Math.min(pw * .55, D * 8), D);
 
     // three figures across the centre
-    const fh = Math.min(vh * .7, pw * .62);
+    const D = Math.min(vh * .095, pw * .07);
+    const fh = Math.min(vh * .7, pw * .5);
     const fy = y + D * 2.1 + (vh - top - D * 2.1 - fh) * .45;
-    [.22, .5, .78].forEach((fx, i) => drawFigure(POSES[i], x + pw * fx, fy, fh * (i === 1 ? 1.02 : 1), i + 1));
+    [.25, .5, .75].forEach((fx, i) => drawFigure(POSES[i], x + pw * fx, fy, fh * (i === 1 ? 1.02 : 1), i + 1));
+
+    // paperweight, in its own canvas: it rests across the top centre of the paper
+    const len = Math.min(pw * .5, D * 8), wm = D * 1.2;
+    sizeCanvas(wcanvas, weightCtx, len + 2 * wm, D * 2.4, dpr);
+    weight.style.width = (len + 2 * wm) + 'px';
+    ctx = weightCtx;
+    paintRod(wm + len / 2, D * .8, len, D);
+    ctx = paperCtx;
+
+    geo = { top, offset: y, rodRest: top + D * .95 - D * .8, rodH: D * 2.4 };
     place();
   }
 
-  // ---- scroll: the paper is pulled up from below the screen ----
+  // ---- scroll: the paper is pulled up from below while the paperweight comes down ----
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   scrollTo(0, 0);
   const ease = t => 1 - Math.pow(1 - t, 3);
@@ -247,6 +261,10 @@
     const tilt = reduce ? 0 : (1 - p) * -1.2;                     // a slight angle while being pulled
     paper.style.transform = `translate(-50%, ${y}px) rotate(${tilt}deg)`;
     paper.style.visibility = p <= 0 ? 'hidden' : 'visible';
+    // the paperweight descends from above the screen, landing as the paper settles
+    const wy = geo.rodRest - (1 - p) * (geo.rodRest + geo.rodH + 20);
+    weight.style.transform = `translate(-50%, ${wy}px)`;
+    weight.style.visibility = p <= 0 ? 'hidden' : 'visible';
   }
   paint();
   addEventListener('scroll', place, { passive: true });
