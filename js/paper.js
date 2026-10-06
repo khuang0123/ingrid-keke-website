@@ -339,11 +339,9 @@
     const below = D * 1.45, avail = vh - top - below;              // paper area under the paperweight
     const fh = Math.min(avail * .9, pw * .5);
     const fy = y + below + (avail - fh) * .3;
-    // inkstone: as long as the figures from shoulders (y≈48 of 334) to feet, its top edge
-    // level with their ears (y≈22)
-    const shoulder = fh * 48 / 334, ear = fh * 22 / 334;
-    const sw = Math.min(pw * .2, avail * .62), sh = fh - shoulder;
-    const sx = pw * .012, sy = fy - y + ear;                        // inkstone, in paper coords
+    // inkstone: the same length as the figures, head to feet
+    const sw = Math.min(pw * .2, avail * .62), sh = fh;
+    const sx = pw * .012, sy = fy - y;                              // inkstone, in paper coords
     const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
     [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
 
