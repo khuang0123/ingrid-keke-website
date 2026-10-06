@@ -194,8 +194,7 @@
   }
 
   // ---- 砚台: a dark inkstone, its rim carved like curling lotus leaves, with a recessed
-  // well (where the origami pieces will sit), a pale bronze plaque with the name seal and
-  // a small golden stone eye. Painted top-down with a little thickness showing. ----
+  // well (where the origami pieces will sit) and a small golden stone eye. Painted top-down with a little thickness showing. ----
   function stoneOutline(x, y, w, h, amp, ph) {
     // walk a rounded rectangle, pushing the edge in and out like a soft leaf margin
     const r = Math.min(w, h) * .18, pts = [], per = 2 * (w + h - 4 * r) + 2 * Math.PI * r;
@@ -279,7 +278,7 @@
     ctx.fillStyle = sheen; ctx.fillRect(x, y, w, h);
     ctx.restore();
 
-    // top carving: a broad leaf curling over the head of the well, carrying the plaque
+    // top carving: a broad leaf curling over the head of the well
     const leaf = new Path2D();
     leaf.moveTo(x + w * .08, y + h * .27);
     leaf.bezierCurveTo(x + w * .1, y + h * .1, x + w * .45, y + h * .03, x + w * .72, y + h * .06);
@@ -298,17 +297,6 @@
       ctx.beginPath(); ctx.moveTo(x + w * a1, y + h * b1);
       ctx.quadraticCurveTo(x + w * (a1 + a2) / 2, y + h * (b1 + b2) / 2 + h * .02, x + w * a2, y + h * b2); ctx.stroke();
     });
-
-    // pale bronze plaque with the name seal carved in
-    const pw2 = w * .5, ph2 = h * .11, plaque = { x: x + w * .42 - pw2 / 2, y: y + h * .165 - ph2 / 2, w: pw2, h: ph2 };
-    const pg = ctx.createLinearGradient(0, plaque.y, 0, plaque.y + ph2);
-    pg.addColorStop(0, '#a88f68'); pg.addColorStop(1, '#6f5a3e');
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = w * .02; ctx.shadowOffsetY = w * .008;
-    ctx.fillStyle = pg; SealScript.roundRect(ctx, plaque, ph2 * .35); ctx.fill(); ctx.restore();
-    ctx.strokeStyle = 'rgba(255, 238, 205, .3)';
-    SealScript.drawRows(ctx, SealScript.NAME, SealScript.inset(plaque, ph2 * .17), ph2 * .055, 0, ph2 * .025);
-    ctx.strokeStyle = 'rgba(38, 28, 16, .9)';
-    SealScript.drawRows(ctx, SealScript.NAME, SealScript.inset(plaque, ph2 * .17), ph2 * .055);
 
     // golden stone eye (石眼)
     const ex = x + w * .83, ey = y + h * .15, er = w * .03;
@@ -348,11 +336,11 @@
 
     // the inkstone takes the left edge; three identical figures share the rest
     const D = Math.min(vh * .095, pw * .07);
-    const below = D * 2.1, avail = vh - top - below;               // paper area under the paperweight
+    const below = D * 1.45, avail = vh - top - below;              // paper area under the paperweight
     const sw = Math.min(pw * .2, avail * .62), sh = Math.min(avail * .86, sw * 1.55);
-    const sx = pw * .012, sy = below + (avail - sh) * .45;          // inkstone, in paper coords
+    const sx = pw * .012, sy = below + (avail - sh) * .3;           // inkstone, in paper coords
     const fh = Math.min(avail * .9, pw * .5);
-    const fy = y + below + (avail - fh) * .45;
+    const fy = y + below + (avail - fh) * .3;
     const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
     [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
 
