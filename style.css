@@ -1,74 +1,36 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* fallback if WebGL is unavailable (on html, so it sits beneath the water canvas) */
+/* fallback if WebGL is unavailable: a bronze gradient beneath the canvas */
 html { background: radial-gradient(120% 90% at 30% 20%, #9c7a52 0%, #4a3a28 50%, #1d1a14 100%) fixed #3a2f22; }
+body { min-height: 100vh; overflow-x: hidden; }
 
-body {
-  min-height: 100vh;
-  color: #eafcff;
-  font-family: "Helvetica Neue", "Avenir Next", Helvetica, Arial, sans-serif;
-  overflow-x: hidden;
-}
-
-#water {
+#bronze {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
   display: block;
 }
 
-/* fixed layer above the water; the page scrolls only to drive the animation */
-.layer { position: fixed; inset: 0; overflow: hidden; }
-.scroll-space { height: 400vh; }
+/* the rice paper slides over the bronze; js/paper.js sets its size and position */
+.paper {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  visibility: hidden;
+  transform-origin: 50% 0;
+  will-change: transform;
+  pointer-events: none;
+}
+.paper canvas { display: block; }
 
-/* ---------- hero ---------- */
-.hero {
+/* the page scrolls only to drive the paper */
+.scroll-space { height: 250vh; }
+
+.visually-hidden {
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0 6vw;
-}
-
-.title-svg { width: min(92vw, 1100px); height: auto; overflow: visible; }
-.gl .title-svg, .gl .figure svg { opacity: 0; } /* WebGL renders words and figures in the bronze instead */
-/* Contourless text: flat translucent fill only — no stroke, no outline, no shadow. */
-.title-svg text {
-  fill: rgba(236, 252, 255, .92);
-  stroke: none;
-  font-family: "Helvetica Neue", "Avenir Next", Helvetica, Arial, sans-serif;
-  font-weight: 200;
-  text-anchor: middle;
-}
-.t1 { font-size: 150px; letter-spacing: 6px; }
-.t2 { font-size: 34px; letter-spacing: 17px; }
-
-/* depth-animated elements scale about their own centre */
-.depth { opacity: 0; transform-box: fill-box; transform-origin: center; will-change: transform, opacity; }
-
-/* ---------- figures ---------- */
-.figures { position: absolute; inset: 0; pointer-events: none; }
-.stage {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1rem, 6vw, 7rem);
-  padding: 0 4vw;
-}
-.figure {
-  height: min(72vh, 620px);
-  aspect-ratio: 200 / 520;
-}
-.figure.tall { height: min(80vh, 690px); }
-.figure svg { width: 100%; height: 100%; display: block; overflow: visible; }
-
-@media (max-width: 640px) {
-  .stage { gap: 2vw; padding: 0 2vw; }
-  .figure, .figure.tall { height: auto; width: 29vw; }
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

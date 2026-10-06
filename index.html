@@ -7,70 +7,19 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="water" aria-hidden="true"></canvas>
+<!-- landing: bronze sheet with the seals pressed into it (js/bronze.js) -->
+<canvas id="bronze" aria-hidden="true"></canvas>
+<h1 class="visually-hidden">Her Triplets — by Ingrid Huang</h1>
 
-<!-- Everything floats on a fixed layer above the water; scrolling only drives the animation. -->
-<main class="layer">
-  <section class="hero">
-    <!-- SVG text so the underwater distortion filter works in every browser.
-         Contourless: flat translucent fill only, no stroke or shadow. -->
-    <svg class="title-svg" viewBox="0 0 1000 320" role="img" aria-label="Her Triplets, by Ingrid Huang">
-      <g class="depth" data-kind="title" data-start="1000"><text class="t1" x="503" y="175">Her Triplets</text></g>
-      <g class="depth" data-kind="subtitle" data-start="1700"><text class="t2" x="509" y="268">by Ingrid Huang</text></g>
-    </svg>
-  </section>
+<!-- 宣纸 pulled up over the bronze on scroll (js/paper.js) -->
+<div class="paper" aria-label="Three figure sketches in brush and ink">
+  <canvas></canvas>
+</div>
 
-  <section class="figures" id="figures">
-    <div class="stage">
-      <div class="figure">
-          <svg viewBox="0 0 200 520" aria-label="Figure one">
-            <defs>
-              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
-                <stop offset=".6" stop-color="#bff6ff" stop-opacity=".5"/>
-                <stop offset="1" stop-color="#9d8cff" stop-opacity=".12"/>
-              </linearGradient>
-            </defs>
-            <g class="depth" data-kind="figure" fill="url(#g1)">
-              <path d="M100 14C112 14 122 24 122 40C122 54 114 64 109 68L109 82C132 88 152 94 154 112C155 130 146 142 142 156C138 176 120 196 119 218C118 244 150 262 150 290C150 330 130 360 122 400C116 440 112 470 110 505L101 505C88 470 84 440 78 400C70 360 50 330 50 290C50 262 82 244 81 218C80 196 62 176 58 156C54 142 45 130 46 112C48 94 68 88 91 82L91 68C86 64 78 54 78 40C78 24 88 14 100 14Z"/>
-            </g>
-          </svg>
-      </div>
-
-      <div class="figure tall">
-          <svg viewBox="0 0 200 520" aria-label="Figure two">
-            <defs>
-              <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
-                <stop offset=".6" stop-color="#c6ffe9" stop-opacity=".5"/>
-                <stop offset="1" stop-color="#6fe3ff" stop-opacity=".12"/>
-              </linearGradient>
-            </defs>
-            <g class="depth" data-kind="figure" fill="url(#g2)">
-              <path d="M100 10C111 10 120 20 120 35C120 49 113 58 108 62L108 74C128 80 144 86 147 104C149 120 140 134 138 150C136 172 128 186 130 206C134 250 168 330 176 400C180 440 178 480 176 508L101 508C22 480 20 440 24 400C32 330 66 250 70 206C72 186 64 172 62 150C60 134 51 120 53 104C56 86 72 80 92 74L92 62C87 58 80 49 80 35C80 20 89 10 100 10Z"/>
-            </g>
-          </svg>
-      </div>
-
-      <div class="figure">
-          <svg viewBox="0 0 200 520" aria-label="Figure three">
-            <defs>
-              <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
-                <stop offset=".6" stop-color="#ffd9f5" stop-opacity=".5"/>
-                <stop offset="1" stop-color="#7aa8ff" stop-opacity=".12"/>
-              </linearGradient>
-            </defs>
-            <g class="depth" data-kind="figure" fill="url(#g3)">
-              <path d="M100 18C110 18 118 27 118 40C118 52 112 60 107 64L107 76C124 82 138 88 141 104C143 120 136 134 134 150C132 176 128 196 128 220C128 252 140 276 138 308C136 360 124 420 120 508L101 508C76 420 64 360 62 308C60 276 72 252 72 220C72 196 68 176 66 150C64 134 57 120 59 104C62 88 76 82 93 76L93 64C88 60 82 52 82 40C82 27 90 18 100 18Z"/>
-            </g>
-          </svg>
-      </div>
-    </div>
-  </section>
-</main>
 <div class="scroll-space" aria-hidden="true"></div>
 
-<script src="main.js"></script>
+<script src="js/seal.js"></script>
+<script src="js/bronze.js"></script>
+<script src="js/paper.js"></script>
 </body>
 </html>
