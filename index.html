@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Her Triplets — Ingrid Huang</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="water" aria-hidden="true"></canvas>
+
+<main>
+  <section class="hero">
+    <h1 class="title"><span class="line l1">Her Triplets</span></h1>
+    <p class="subtitle"><span class="line l2">by Ingrid Huang</span></p>
+  </section>
+
+  <section class="figures" id="figures">
+    <div class="stage">
+      <div class="figure" data-delay="0">
+        <div class="float f1">
+          <svg viewBox="0 0 200 520" aria-label="Figure one">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
+                <stop offset=".6" stop-color="#bff6ff" stop-opacity=".5"/>
+                <stop offset="1" stop-color="#9d8cff" stop-opacity=".12"/>
+              </linearGradient>
+              <filter id="s1"><feGaussianBlur stdDeviation=".7"/></filter>
+            </defs>
+            <g fill="url(#g1)" filter="url(#s1)">
+              <path id="a" d="M100 14C112 14 122 24 122 40C122 54 114 64 109 68L109 82C132 88 152 94 154 112C155 130 146 142 142 156C138 176 120 196 119 218C118 244 150 262 150 290C150 330 130 360 122 400C116 440 112 470 110 505L99 505Z"/>
+              <path transform="translate(200 0) scale(-1 1)" d="M100 14C112 14 122 24 122 40C122 54 114 64 109 68L109 82C132 88 152 94 154 112C155 130 146 142 142 156C138 176 120 196 119 218C118 244 150 262 150 290C150 330 130 360 122 400C116 440 112 470 110 505L99 505Z"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="figure tall" data-delay="0.18">
+        <div class="float f2">
+          <svg viewBox="0 0 200 520" aria-label="Figure two">
+            <defs>
+              <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
+                <stop offset=".6" stop-color="#c6ffe9" stop-opacity=".5"/>
+                <stop offset="1" stop-color="#6fe3ff" stop-opacity=".12"/>
+              </linearGradient>
+              <filter id="s2"><feGaussianBlur stdDeviation=".7"/></filter>
+            </defs>
+            <g fill="url(#g2)" filter="url(#s2)">
+              <path d="M100 10C111 10 120 20 120 35C120 49 113 58 108 62L108 74C128 80 144 86 147 104C149 120 140 134 138 150C136 172 128 186 130 206C134 250 168 330 176 400C180 440 178 480 176 508L99 508Z"/>
+              <path transform="translate(200 0) scale(-1 1)" d="M100 10C111 10 120 20 120 35C120 49 113 58 108 62L108 74C128 80 144 86 147 104C149 120 140 134 138 150C136 172 128 186 130 206C134 250 168 330 176 400C180 440 178 480 176 508L99 508Z"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="figure" data-delay="0.36">
+        <div class="float f3">
+          <svg viewBox="0 0 200 520" aria-label="Figure three">
+            <defs>
+              <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
+                <stop offset=".6" stop-color="#ffd9f5" stop-opacity=".5"/>
+                <stop offset="1" stop-color="#7aa8ff" stop-opacity=".12"/>
+              </linearGradient>
+              <filter id="s3"><feGaussianBlur stdDeviation=".7"/></filter>
+            </defs>
+            <g fill="url(#g3)" filter="url(#s3)">
+              <path d="M100 18C110 18 118 27 118 40C118 52 112 60 107 64L107 76C124 82 138 88 141 104C143 120 136 134 134 150C132 176 128 196 128 220C128 252 140 276 138 308C136 360 124 420 120 508L99 508Z"/>
+              <path transform="translate(200 0) scale(-1 1)" d="M100 18C110 18 118 27 118 40C118 52 112 60 107 64L107 76C124 82 138 88 141 104C143 120 136 134 134 150C132 176 128 196 128 220C128 252 140 276 138 308C136 360 124 420 120 508L99 508Z"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="main.js"></script>
+</body>
+</html>
