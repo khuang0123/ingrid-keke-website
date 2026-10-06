@@ -193,8 +193,8 @@
     ctx.restore();
   }
 
-  // ---- 砚台: a dark inkstone, its rim carved like curling lotus leaves, with a recessed
-  // well (where the origami pieces will sit) and a small golden stone eye. Painted top-down with a little thickness showing. ----
+  // ---- 砚台: a dark inkstone with a soft, leaf-like rim around one long recessed well
+  // (where the origami pieces will sit). Painted top-down with a little thickness showing. ----
   function stoneOutline(x, y, w, h, amp, ph) {
     // walk a rounded rectangle, pushing the edge in and out like a soft leaf margin
     const r = Math.min(w, h) * .18, pts = [], per = 2 * (w + h - 4 * r) + 2 * Math.PI * r;
@@ -240,7 +240,7 @@
   function paintInkstone(x, y, w, h) {
     const T = h * .035;                                            // visible thickness
     const outer = toPath(stoneOutline(x, y, w, h, w * .035, 1.3));
-    const wellPts = stoneOutline(x + w * .12, y + h * .3, w * .76, h * .6, w * .025, 4.1);
+    const wellPts = stoneOutline(x + w * .12, y + h * .06, w * .76, h * .86, w * .025, 4.1);
     const well = toPath(wellPts);
 
     // shadow on the paper, then the stone's side
@@ -267,42 +267,16 @@
     bevel(outer, w, true, 1.2);
 
     // the well: recessed and smoothly polished, ready to hold the pieces
-    const wg = ctx.createLinearGradient(x, y + h * .3, x + w, y + h);
+    const wg = ctx.createLinearGradient(x, y + h * .06, x + w, y + h);
     wg.addColorStop(0, '#272522'); wg.addColorStop(.55, '#2e2c29'); wg.addColorStop(1, '#211f1d');
     ctx.fillStyle = wg; ctx.fill(well);
     bevel(well, w, false, 1.3);
     ctx.save(); ctx.clip(well);
-    const sheen = ctx.createLinearGradient(x + w * .15, y + h * .32, x + w * .85, y + h * .9);
+    const sheen = ctx.createLinearGradient(x + w * .15, y + h * .1, x + w * .85, y + h * .9);
     sheen.addColorStop(0, 'rgba(255,255,255,0)'); sheen.addColorStop(.45, 'rgba(255, 250, 240, .06)');
     sheen.addColorStop(.6, 'rgba(255, 250, 240, .02)'); sheen.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sheen; ctx.fillRect(x, y, w, h);
     ctx.restore();
-
-    // top carving: a broad leaf curling over the head of the well
-    const leaf = new Path2D();
-    leaf.moveTo(x + w * .08, y + h * .27);
-    leaf.bezierCurveTo(x + w * .1, y + h * .1, x + w * .45, y + h * .03, x + w * .72, y + h * .06);
-    leaf.bezierCurveTo(x + w * .97, y + h * .08, x + w * .98, y + h * .26, x + w * .8, y + h * .31);
-    leaf.bezierCurveTo(x + w * .66, y + h * .35, x + w * .58, y + h * .27, x + w * .44, y + h * .31);
-    leaf.bezierCurveTo(x + w * .3, y + h * .35, x + w * .16, y + h * .33, x + w * .08, y + h * .27);
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, .6)'; ctx.shadowBlur = w * .05; ctx.shadowOffsetX = w * .01; ctx.shadowOffsetY = w * .025;
-    const lg = ctx.createLinearGradient(x, y, x + w * .6, y + h * .35);
-    lg.addColorStop(0, '#4b4741'); lg.addColorStop(1, '#2a2825');
-    ctx.fillStyle = lg; ctx.fill(leaf); ctx.restore();
-    bevel(leaf, w, true, 1);
-    // leaf veins, softly carved
-    ctx.strokeStyle = 'rgba(0, 0, 0, .28)'; ctx.lineWidth = w * .007; ctx.lineCap = 'round';
-    [[.2, .26, .35, .16], [.62, .27, .78, .14], [.48, .29, .55, .13]].forEach(([a1, b1, a2, b2]) => {
-      ctx.beginPath(); ctx.moveTo(x + w * a1, y + h * b1);
-      ctx.quadraticCurveTo(x + w * (a1 + a2) / 2, y + h * (b1 + b2) / 2 + h * .02, x + w * a2, y + h * b2); ctx.stroke();
-    });
-
-    // golden stone eye (石眼)
-    const ex = x + w * .83, ey = y + h * .15, er = w * .03;
-    const eg = ctx.createRadialGradient(ex - er * .3, ey - er * .3, 0, ex, ey, er);
-    eg.addColorStop(0, '#f4d872'); eg.addColorStop(.65, '#c99c30'); eg.addColorStop(1, '#4e3a12');
-    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, er, 0, 6.283); ctx.fill();
 
     // fine stone grain
     ctx.save(); ctx.clip(outer);
@@ -341,7 +315,7 @@
     const fy = y + below + (avail - fh) * .3;
     // inkstone: the same length as the figures, head to feet
     const sw = Math.min(pw * .2, avail * .62), sh = fh;
-    const sx = pw * .012, sy = fy - y;                              // inkstone, in paper coords
+    const sx = pw * .012, sy = fy - y - fh * .05;                   // inkstone, in paper coords
     const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
     [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
 
