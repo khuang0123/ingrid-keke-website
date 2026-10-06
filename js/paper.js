@@ -1,6 +1,7 @@
 /* ---------- 宣纸: a sheet of rice paper pulled up over the bronze as you scroll ----------
    A round bronze paperweight (镇纸) carved with the seal comes down from the top to rest
-   across it, and on the paper are three fashion croquis figures in 毛笔 brush strokes.
+   across it, an inkstone (砚台) slides in from the right to its left edge, and on the paper
+   are three fashion croquis silhouettes in 毛笔 brush strokes.
    Paper and paperweight are each painted once into a canvas (re-painted on resize);
    scrolling only slides them. */
 (function () {
@@ -8,7 +9,9 @@
   const canvas = paper.querySelector('canvas');
   const weight = document.querySelector('.weight');
   const wcanvas = weight.querySelector('canvas');
-  const paperCtx = canvas.getContext('2d'), weightCtx = wcanvas.getContext('2d');
+  const stone = document.querySelector('.inkstone');
+  const scanvas = stone.querySelector('canvas');
+  const paperCtx = canvas.getContext('2d'), weightCtx = wcanvas.getContext('2d'), stoneCtx = scanvas.getContext('2d');
   let ctx = paperCtx;                       // the canvas currently being painted
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -20,43 +23,24 @@
   const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const clamp = x => Math.max(0, Math.min(1, x));
 
-  // ---- croquis figure, traced from the reference sketch: strokes in a 100 × 334 box ----
-  // each stroke: [weight, [x, y], …] (points are passed through smoothly)
-  const BASE = {
-    head: [[0.75, [50.0, 0.0], [42.1, 2.9], [37.4, 12.6], [38.1, 24.5], [43.5, 31.8], [50.0, 33.6]],
-           [0.75, [50.0, 0.0], [57.9, 2.9], [62.6, 12.6], [61.9, 24.5], [56.5, 31.8], [50.0, 33.6]]],
-    neck: [[0.5, [44.9, 31.8], [44.6, 41.5], [42.8, 50.5]],
-           [0.5, [55.1, 31.8], [55.4, 41.5], [57.2, 50.5]]],
-    armL: [[1, [42.8, 50.5], [35.6, 53.4], [31.9, 57.8], [30.5, 66.8], [29.1, 86.6], [26.9, 104.7], [22.6, 122.7], [17.5, 139.0], [9.6, 151.6], [3.1, 155.2]],
-           [0.6, [34.8, 75.1], [33.8, 93.9], [31.2, 111.9], [26.2, 130.0], [19.3, 144.4], [12.5, 151.6]],
-           [0.45, [3.1, 155.2], [-2.0, 156.0], [-4.1, 158.8]],
-           [0.4, [6.7, 154.5], [3.1, 160.6]]],
-    armR: [[1, [57.2, 50.5], [64.4, 53.4], [68.0, 57.8], [69.5, 66.8], [71.7, 86.6], [74.5, 104.7], [79.6, 122.7], [85.4, 139.0], [93.3, 150.9], [100.5, 155.2]],
-           [0.6, [65.9, 75.1], [67.3, 93.9], [70.6, 111.9], [76.0, 130.0], [84.3, 144.4], [91.2, 151.6]],
-           [0.45, [100.5, 155.2], [105.6, 156.7], [107.0, 160.3]],
-           [0.4, [96.9, 154.5], [99.8, 161.0]]],
-    body: [[1, [33.4, 61.4], [32.7, 72.2], [33.4, 81.2], [37.7, 92.1], [39.9, 101.1], [36.3, 111.9], [30.5, 124.5], [28.3, 139.0], [29.1, 155.2], [30.5, 167.9]],
-           [1, [66.6, 61.4], [67.3, 72.2], [66.6, 81.2], [62.3, 92.1], [60.1, 101.1], [62.3, 111.9], [65.9, 122.7], [67.3, 137.2], [65.9, 151.6]],
-           [0.4, [37.0, 76.5], [42.1, 83.8], [49.6, 80.1]],
-           [0.4, [50.4, 80.1], [57.9, 83.8], [63.0, 76.5]],
-           [0.4, [39.9, 130.0], [46.4, 133.6], [50.0, 139.0], [53.6, 133.6], [60.1, 128.2]]],
-    legs: [[0.9, [30.5, 167.9], [31.2, 191.3], [34.8, 216.6], [37.7, 231.0], [38.4, 245.5], [40.6, 267.1], [43.5, 288.8], [45.7, 306.8], [46.4, 321.3]],
-           [0.6, [48.6, 144.4], [47.1, 173.3], [45.7, 202.2], [44.9, 227.4], [45.7, 249.1], [47.1, 278.0], [48.6, 303.2], [49.3, 317.7]],
-           [0.9, [65.9, 151.6], [64.4, 176.9], [60.1, 202.2], [55.8, 227.4], [54.3, 245.5], [52.2, 267.1], [50.0, 288.8], [48.6, 306.8], [50.0, 324.9]],
-           [0.6, [53.6, 144.4], [53.6, 176.9], [52.9, 202.2], [52.2, 227.4], [50.7, 249.1], [49.3, 278.0], [47.8, 299.6]],
-           [0.45, [46.4, 321.3], [44.2, 328.5], [47.8, 332.1]],
-           [0.45, [50.0, 324.9], [49.3, 331.4], [52.9, 333.9]]],
-  };
-  // a second pose: right hand resting on the hip
-  const HIP_R = [[1, [57.2, 50.5], [64.4, 53.4], [68.0, 57.8], [70.9, 66.8], [78.2, 84.8], [82.5, 101.1], [75.3, 115.5], [64.4, 120.9]],
-                 [0.6, [65.9, 75.1], [70.9, 88.4], [72.4, 101.1], [66.6, 111.9], [60.8, 116.2]],
-                 [0.4, [64.4, 120.9], [59.4, 122.7]]];
-  const flip = strokes => strokes.map(([w, ...pts]) => [w, ...pts.map(([x, y]) => [100 - x, y])]);
-  const all = parts => Object.values(parts).flat();
-  const POSES = [
-    all(BASE),
-    flip(all({ ...BASE, armR: HIP_R })),
-    all({ ...BASE, armL: flip(BASE.armR), armR: flip(BASE.armL) }),
+  // ---- croquis silhouette: outer contour only, snapped point-by-point onto the lines of
+  // the reference sketch (no interior lines), in a 100-wide × 334-tall box ----
+  // each stroke: [weight, [x, y], …]
+  const SILHOUETTE = [
+    [1, [49.6, 0.0], [47.2, 0.8], [45.3, 1.6], [43.3, 2.7], [41.5, 4.2], [40.1, 6.1], [38.9, 8.2], [38.2, 10.4], [37.9, 12.8], [37.8, 15.2], [37.5, 17.6], [37.0, 20.2], [37.1, 22.6], [38.0, 24.6], [39.4, 26.4], [40.6, 28.5], [41.7, 30.6], [43.1, 32.4], [45.0, 34.4]], // headL
+    [1, [49.6, 0.0], [52.0, 0.8], [53.9, 1.6], [55.9, 2.8], [57.7, 4.3], [59.1, 6.2], [60.2, 8.3], [60.9, 10.5], [61.3, 12.8], [61.5, 15.2], [61.8, 17.7], [62.2, 20.2], [62.1, 22.5], [61.3, 24.5], [60.0, 26.2], [58.8, 28.2], [57.7, 30.4], [56.3, 32.4], [54.9, 33.8]], // headR
+    [0.7, [45.0, 35.2], [45.1, 37.7], [45.4, 39.8], [45.7, 42.0], [46.1, 44.2], [46.6, 45.9]], // neckL
+    [0.7, [55.7, 35.2], [56.0, 37.7], [56.1, 39.8], [56.1, 42.0], [56.3, 44.2], [56.5, 45.9]], // neckR
+    [1, [45.4, 45.9], [43.0, 47.2], [41.0, 48.4], [38.9, 49.8], [36.5, 51.0], [34.0, 51.8], [31.6, 52.6], [29.6, 53.6], [28.2, 54.7]], // shoulderL
+    [1, [56.5, 45.9], [59.0, 47.7], [61.1, 49.2], [63.8, 49.1], [66.6, 48.0], [69.3, 47.7], [72.0, 48.3], [74.4, 49.7], [75.9, 51.6], [76.9, 54.4]], // shoulderR
+    [1, [28.2, 54.7], [27.6, 57.4], [27.2, 59.6], [26.9, 62.0], [26.6, 64.3], [26.4, 66.6], [26.1, 68.9], [25.9, 71.2], [25.5, 73.4], [25.1, 75.7], [24.7, 78.0], [24.3, 80.3], [23.9, 82.6], [23.4, 84.8], [23.0, 87.1], [22.5, 89.3], [22.0, 91.6], [21.5, 94.0], [21.2, 96.3], [20.9, 98.7], [20.2, 100.9], [19.3, 103.1], [18.2, 105.3], [17.1, 107.4], [16.3, 109.6], [15.9, 112.0], [15.7, 114.4], [15.4, 116.7], [15.2, 119.0], [15.0, 121.4], [14.7, 123.8], [14.5, 126.2], [14.3, 128.5], [14.0, 130.9], [13.7, 133.3], [13.4, 135.7], [13.1, 138.0], [12.7, 140.4], [12.3, 142.6], [11.7, 144.8], [10.9, 146.9], [9.8, 148.8], [8.5, 150.4], [6.8, 151.9], [4.8, 153.3], [2.6, 154.5], [0.5, 155.7], [-1.3, 157.5], [-3.0, 159.3], [-4.4, 160.8], [-5.6, 161.8]], // armL
+    [0.6, [-5.3, 161.5], [-6.0, 162.5], [-4.9, 163.1], [-3.1, 164.1], [-1.0, 165.4], [1.0, 166.7], [3.1, 167.5], [5.3, 167.3], [6.9, 166.1], [7.8, 164.1], [9.1, 162.1], [10.6, 160.3], [11.9, 158.2], [12.9, 156.1], [13.9, 154.0], [14.9, 152.0], [15.7, 150.0], [16.0, 148.3]], // handL
+    [0.75, [33.2, 70.0], [32.9, 72.5], [32.9, 74.6], [33.4, 76.9], [34.4, 79.3], [35.0, 81.8], [34.1, 84.1], [32.8, 86.2], [32.0, 88.4], [31.4, 90.8], [30.7, 93.2], [30.1, 95.5], [29.5, 97.8], [29.0, 100.1], [29.1, 102.5], [29.6, 104.8], [30.3, 106.7]], // innerArmL
+    [1, [77.2, 54.6], [77.7, 57.2], [78.1, 59.5], [78.6, 61.8], [79.0, 64.1], [79.5, 66.4], [79.9, 68.8], [80.3, 71.0], [80.7, 73.4], [81.1, 75.8], [81.6, 78.1], [81.9, 80.5], [82.4, 82.8], [82.7, 85.2], [83.2, 87.6], [83.5, 90.0], [83.8, 92.5], [84.1, 94.9], [84.6, 97.3], [85.2, 99.7], [85.8, 102.0], [86.8, 104.2], [88.0, 106.3], [88.8, 108.7], [89.3, 111.1], [89.7, 113.6], [90.1, 116.0], [90.6, 118.3], [90.9, 120.7], [91.3, 123.0], [91.7, 125.3], [92.2, 127.6], [92.7, 130.0], [92.8, 132.4], [92.5, 134.7], [92.3, 137.0], [92.6, 139.3], [93.2, 141.6], [94.0, 143.9], [94.8, 146.1], [95.7, 148.3], [96.9, 150.3], [98.1, 152.3], [99.4, 154.2], [100.7, 156.0], [102.1, 158.2]], // armR
+    [0.6, [100.1, 159.7], [103.0, 160.4], [104.0, 162.1], [103.6, 164.0], [102.1, 165.5], [100.8, 166.7], [100.5, 167.2], [100.2, 166.3], [99.5, 164.4], [98.2, 162.6], [96.7, 161.5]], // handR
+    [0.75, [73.0, 85.2], [73.6, 87.8], [74.2, 89.9], [74.9, 92.2], [75.5, 94.6], [76.1, 96.9], [76.6, 99.3], [76.9, 101.7], [77.3, 104.1], [77.9, 106.4], [78.6, 108.7], [79.4, 110.9], [80.3, 113.1], [81.1, 115.3], [82.0, 117.5], [82.9, 119.6], [83.7, 121.7], [84.6, 123.9], [85.5, 126.0], [86.3, 128.2], [87.2, 130.3], [88.1, 132.6], [88.8, 135.0], [89.1, 137.5], [89.0, 140.0], [89.3, 142.4], [89.8, 144.7], [90.1, 147.1], [90.3, 149.5], [90.9, 151.8], [91.9, 153.9], [93.1, 155.7], [94.0, 157.6], [94.7, 159.5], [96.7, 161.5]], // innerArmR
+    [1, [34.3, 65.1], [34.0, 67.6], [33.5, 69.7], [33.0, 71.9], [32.9, 74.2], [33.2, 76.5], [34.2, 78.8], [35.5, 81.0], [36.3, 83.2], [36.5, 85.5], [36.9, 87.7], [37.5, 90.0], [38.0, 92.3], [38.5, 94.7], [38.9, 97.3], [39.4, 100.1], [38.9, 102.3], [37.0, 103.8], [34.5, 104.8], [32.1, 105.9], [30.0, 107.5], [28.3, 109.4], [26.7, 111.3], [25.2, 113.1], [23.9, 115.0], [22.5, 117.1], [21.3, 119.3], [20.1, 121.5], [19.1, 123.8], [18.3, 126.1], [17.6, 128.4], [17.0, 130.9], [16.5, 133.3], [16.2, 135.6], [16.0, 138.1], [15.9, 140.5], [15.9, 143.0], [15.9, 145.3], [16.0, 147.6], [16.1, 150.0], [16.4, 152.3], [16.8, 154.6], [17.1, 156.9], [17.5, 159.1], [17.8, 161.4], [18.2, 163.7], [18.7, 166.0], [19.1, 168.2], [19.5, 170.5], [20.0, 172.6], [20.5, 175.0], [20.1, 174.0], [20.7, 176.7], [21.1, 179.0], [21.5, 181.5], [22.0, 183.9], [22.5, 186.4], [22.9, 188.7], [23.3, 191.1], [23.6, 193.4], [23.8, 195.8], [24.1, 198.2], [24.7, 200.6], [25.3, 203.0], [25.9, 205.3], [26.4, 207.7], [27.0, 210.1], [27.7, 212.5], [27.8, 214.9], [26.7, 217.1], [25.6, 219.2], [25.1, 221.5], [24.9, 223.9], [24.7, 226.2], [24.6, 228.5], [24.5, 230.9], [24.4, 233.2], [24.3, 235.6], [24.4, 237.9], [24.5, 240.3], [24.7, 242.6], [25.1, 245.0], [25.6, 247.3], [26.1, 249.7], [26.7, 252.0], [27.4, 254.2], [28.1, 256.4], [28.9, 258.6], [29.7, 260.7], [30.6, 262.8], [31.4, 265.0], [32.1, 267.1], [32.9, 269.3], [33.7, 271.5], [34.4, 273.7], [35.1, 275.8], [35.8, 278.0], [36.5, 280.2], [37.2, 282.5], [37.9, 284.7], [38.7, 287.0], [39.4, 289.4], [40.2, 291.6], [41.0, 293.9], [41.7, 296.1], [42.3, 298.4], [42.8, 300.7], [43.2, 303.0], [43.3, 305.3], [43.3, 307.6], [43.5, 309.9], [43.9, 312.2], [44.1, 314.5], [44.1, 316.9], [43.9, 319.3], [43.8, 321.6], [43.6, 324.0], [43.6, 326.4], [43.8, 328.8], [44.4, 331.0], [45.7, 332.6], [47.8, 333.4], [50.2, 333.5], [52.6, 332.9], [54.4, 331.5], [55.1, 329.3], [54.6, 326.8], [53.9, 324.4], [53.1, 322.1], [52.3, 319.8], [51.6, 317.5], [51.0, 315.1], [50.4, 312.8], [49.9, 310.5], [49.5, 308.6], [49.2, 307.2]], // bodyL + legL
+    [1, [69.9, 68.1], [70.5, 70.5], [70.9, 72.7], [70.7, 75.0], [70.0, 77.3], [68.7, 79.5], [67.7, 81.8], [67.5, 84.2], [67.2, 86.7], [66.6, 88.9], [65.8, 91.1], [65.0, 93.3], [64.1, 95.5], [63.3, 97.7], [62.6, 99.9], [61.9, 102.2], [61.3, 104.5], [61.2, 106.9], [61.3, 109.3], [61.6, 111.7], [62.0, 114.0], [62.4, 116.2], [62.7, 118.5], [63.0, 120.8], [63.3, 123.1], [63.5, 125.4], [63.8, 127.7], [63.9, 130.0], [64.0, 132.3], [64.1, 134.7], [64.1, 137.0], [64.0, 139.3], [63.8, 141.6], [63.5, 143.9], [63.2, 146.1], [62.8, 148.4], [62.4, 150.7], [62.0, 153.0], [61.5, 155.3], [61.0, 157.5], [60.5, 159.8], [60.0, 162.1], [59.5, 164.3], [59.0, 166.7], [58.5, 169.0], [58.0, 171.2], [57.7, 173.0], [57.5, 172.8], [56.9, 175.5], [56.4, 177.9], [55.9, 180.3], [55.4, 182.6], [54.8, 184.9], [54.3, 187.2], [53.8, 189.5], [53.3, 191.8], [52.8, 194.2], [52.3, 196.5], [52.1, 198.9], [52.0, 201.2], [51.7, 203.5], [51.5, 205.8], [51.6, 208.1], [51.9, 210.4], [52.3, 212.7], [52.7, 215.0], [52.9, 217.3], [53.1, 219.7], [53.4, 222.1], [53.9, 224.5], [54.5, 226.8], [55.0, 229.1], [55.3, 231.5], [55.5, 233.9], [55.7, 236.2], [55.6, 238.6], [55.4, 241.0], [55.1, 243.3], [54.9, 245.6], [54.6, 247.9], [54.2, 250.2], [53.8, 252.5], [53.4, 254.8], [52.9, 257.0], [52.4, 259.3], [52.1, 261.6], [51.9, 263.9], [51.5, 266.2], [50.8, 268.5], [50.3, 270.8], [50.1, 273.3], [50.0, 275.7], [50.1, 278.1], [50.5, 280.6], [50.8, 282.9], [51.1, 285.3], [51.4, 287.7], [51.8, 290.0], [52.3, 292.3], [52.6, 294.6], [52.5, 296.9], [52.0, 299.1], [51.1, 301.4], [50.3, 303.8], [49.7, 305.7], [49.2, 307.2]], // bodyR + legR
   ];
 
   // Catmull-Rom through the points, resampled to ~step px
@@ -87,7 +71,7 @@
       const t = len[i] / L;
       const a = path[Math.max(0, i - 1)], b = path[Math.min(n - 1, i + 1)];
       let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const nl = Math.hypot(nx, ny) || 1;
-      const w = W * (.25 + .75 * ss(0, .12, t)) * (1 - .85 * ss(.5, 1, t)) * (.55 + .9 * noise1(len[i] / (W * 11) + sd))
+      const w = W * (.25 + .75 * ss(0, .12, t)) * (1 - .7 * ss(.6, 1, t)) * (.55 + .9 * noise1(len[i] / (W * 11) + sd))
               + W * .45 * Math.exp(-t / .03);                          // the press at the start
       return { x, y, t, w, nx: nx / nl, ny: ny / nl, ink: .9 - .3 * ss(.45, 1, t) };
     });
@@ -209,6 +193,138 @@
     ctx.restore();
   }
 
+  // ---- 砚台: a dark inkstone, its rim carved like curling lotus leaves, with a recessed
+  // well (where the origami pieces will sit), a pale bronze plaque with the name seal and
+  // a small golden stone eye. Painted top-down with a little thickness showing. ----
+  function stoneOutline(x, y, w, h, amp, ph) {
+    // walk a rounded rectangle, pushing the edge in and out like a soft leaf margin
+    const r = Math.min(w, h) * .18, pts = [], per = 2 * (w + h - 4 * r) + 2 * Math.PI * r;
+    const N = 260;
+    for (let i = 0; i < N; i++) {
+      let d = i / N * per, px, py, nx, ny;
+      const seg = [w - 2 * r, Math.PI * r / 2, h - 2 * r, Math.PI * r / 2, w - 2 * r, Math.PI * r / 2, h - 2 * r, Math.PI * r / 2];
+      let k = 0; while (d > seg[k]) { d -= seg[k]; k++; }
+      const arc = (cx, cy, a0) => { const a = a0 + d / r; px = cx + Math.cos(a) * r; py = cy + Math.sin(a) * r; nx = Math.cos(a); ny = Math.sin(a); };
+      if (k === 0) { px = x + r + d; py = y; nx = 0; ny = -1; }
+      else if (k === 1) arc(x + w - r, y + r, -Math.PI / 2);
+      else if (k === 2) { px = x + w; py = y + r + d; nx = 1; ny = 0; }
+      else if (k === 3) arc(x + w - r, y + h - r, 0);
+      else if (k === 4) { px = x + w - r - d; py = y + h; nx = 0; ny = 1; }
+      else if (k === 5) arc(x + r, y + h - r, Math.PI / 2);
+      else if (k === 6) { px = x; py = y + h - r - d; nx = -1; ny = 0; }
+      else arc(x + r, y + r, Math.PI);
+      const t = i / N, wv = amp * (.55 * Math.sin(t * 6.283 * 4 + ph) + .3 * Math.sin(t * 6.283 * 9 + ph * 2) + .5 * (noise1(t * 22 + ph) - .5));
+      pts.push([px + nx * wv, py + ny * wv, nx, ny]);
+    }
+    return pts;
+  }
+  
+  // carved relief: a soft bevel inside a shape, lit from the upper left
+  function bevel(path, w, raised = true, strength = 1) {
+    ctx.save(); ctx.clip(path);
+    const pass = (col, dx, dy) => {
+      ctx.shadowColor = col; ctx.shadowBlur = w * .035; ctx.shadowOffsetX = dx; ctx.shadowOffsetY = dy;
+      // stroke the outline far off-canvas so only its shadow lands inside the shape
+      ctx.lineWidth = w * .05; ctx.strokeStyle = '#000';
+      const far = 1e4, m = ctx.getTransform();
+      ctx.save(); ctx.translate(-far, 0);
+      ctx.shadowOffsetX = far * m.a + dx; ctx.shadowOffsetY = dy;
+      ctx.stroke(path); ctx.restore();
+    };
+    const k = w * .012, s = raised ? 1 : -1;
+    pass(`rgba(255, 246, 228, ${.22 * strength})`, s * k, s * k);       // light on the upper-left inner edge
+    pass(`rgba(0, 0, 0, ${.55 * strength})`, -s * k, -s * k);           // shade on the lower-right
+    ctx.restore();
+  }
+  const toPath = pts => { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x, y) : p.moveTo(x, y)); p.closePath(); return p; };
+
+  function paintInkstone(x, y, w, h) {
+    const T = h * .035;                                            // visible thickness
+    const outer = toPath(stoneOutline(x, y, w, h, w * .035, 1.3));
+    const wellPts = stoneOutline(x + w * .12, y + h * .3, w * .76, h * .6, w * .025, 4.1);
+    const well = toPath(wellPts);
+
+    // shadow on the paper, then the stone's side
+    ctx.save();
+    ctx.shadowColor = 'rgba(15, 10, 5, .42)'; ctx.shadowBlur = w * .14; ctx.shadowOffsetX = w * .03; ctx.shadowOffsetY = w * .06;
+    ctx.translate(0, T); ctx.fillStyle = '#100f0e'; ctx.fill(outer); ctx.restore();
+    ctx.save(); ctx.translate(0, T);
+    const side = ctx.createLinearGradient(x, 0, x + w, 0);
+    side.addColorStop(0, '#22201d'); side.addColorStop(1, '#0d0c0b');
+    ctx.fillStyle = side; ctx.fill(outer); ctx.restore();
+
+    // top face: matte dark stone with soft mottling
+    const face = ctx.createLinearGradient(x, y, x + w, y + h);
+    face.addColorStop(0, '#47433e'); face.addColorStop(.45, '#33302c'); face.addColorStop(1, '#232120');
+    ctx.fillStyle = face; ctx.fill(outer);
+    ctx.save(); ctx.clip(outer);
+    for (let i = 0; i < 24; i++) {
+      const cx = x + rnd() * w, cy = y + rnd() * h, r = w * (.1 + rnd() * .3);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, rnd() < .5 ? 'rgba(0, 0, 0, .12)' : 'rgba(120, 112, 100, .08)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    }
+    ctx.restore();
+    bevel(outer, w, true, 1.2);
+
+    // the well: recessed and smoothly polished, ready to hold the pieces
+    const wg = ctx.createLinearGradient(x, y + h * .3, x + w, y + h);
+    wg.addColorStop(0, '#272522'); wg.addColorStop(.55, '#2e2c29'); wg.addColorStop(1, '#211f1d');
+    ctx.fillStyle = wg; ctx.fill(well);
+    bevel(well, w, false, 1.3);
+    ctx.save(); ctx.clip(well);
+    const sheen = ctx.createLinearGradient(x + w * .15, y + h * .32, x + w * .85, y + h * .9);
+    sheen.addColorStop(0, 'rgba(255,255,255,0)'); sheen.addColorStop(.45, 'rgba(255, 250, 240, .06)');
+    sheen.addColorStop(.6, 'rgba(255, 250, 240, .02)'); sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheen; ctx.fillRect(x, y, w, h);
+    ctx.restore();
+
+    // top carving: a broad leaf curling over the head of the well, carrying the plaque
+    const leaf = new Path2D();
+    leaf.moveTo(x + w * .08, y + h * .27);
+    leaf.bezierCurveTo(x + w * .1, y + h * .1, x + w * .45, y + h * .03, x + w * .72, y + h * .06);
+    leaf.bezierCurveTo(x + w * .97, y + h * .08, x + w * .98, y + h * .26, x + w * .8, y + h * .31);
+    leaf.bezierCurveTo(x + w * .66, y + h * .35, x + w * .58, y + h * .27, x + w * .44, y + h * .31);
+    leaf.bezierCurveTo(x + w * .3, y + h * .35, x + w * .16, y + h * .33, x + w * .08, y + h * .27);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, .6)'; ctx.shadowBlur = w * .05; ctx.shadowOffsetX = w * .01; ctx.shadowOffsetY = w * .025;
+    const lg = ctx.createLinearGradient(x, y, x + w * .6, y + h * .35);
+    lg.addColorStop(0, '#4b4741'); lg.addColorStop(1, '#2a2825');
+    ctx.fillStyle = lg; ctx.fill(leaf); ctx.restore();
+    bevel(leaf, w, true, 1);
+    // leaf veins, softly carved
+    ctx.strokeStyle = 'rgba(0, 0, 0, .28)'; ctx.lineWidth = w * .007; ctx.lineCap = 'round';
+    [[.2, .26, .35, .16], [.62, .27, .78, .14], [.48, .29, .55, .13]].forEach(([a1, b1, a2, b2]) => {
+      ctx.beginPath(); ctx.moveTo(x + w * a1, y + h * b1);
+      ctx.quadraticCurveTo(x + w * (a1 + a2) / 2, y + h * (b1 + b2) / 2 + h * .02, x + w * a2, y + h * b2); ctx.stroke();
+    });
+
+    // pale bronze plaque with the name seal carved in
+    const pw2 = w * .5, ph2 = h * .11, plaque = { x: x + w * .42 - pw2 / 2, y: y + h * .165 - ph2 / 2, w: pw2, h: ph2 };
+    const pg = ctx.createLinearGradient(0, plaque.y, 0, plaque.y + ph2);
+    pg.addColorStop(0, '#a88f68'); pg.addColorStop(1, '#6f5a3e');
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = w * .02; ctx.shadowOffsetY = w * .008;
+    ctx.fillStyle = pg; SealScript.roundRect(ctx, plaque, ph2 * .35); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = 'rgba(255, 238, 205, .3)';
+    SealScript.drawRows(ctx, SealScript.NAME, SealScript.inset(plaque, ph2 * .17), ph2 * .055, 0, ph2 * .025);
+    ctx.strokeStyle = 'rgba(38, 28, 16, .9)';
+    SealScript.drawRows(ctx, SealScript.NAME, SealScript.inset(plaque, ph2 * .17), ph2 * .055);
+
+    // golden stone eye (石眼)
+    const ex = x + w * .83, ey = y + h * .15, er = w * .03;
+    const eg = ctx.createRadialGradient(ex - er * .3, ey - er * .3, 0, ex, ey, er);
+    eg.addColorStop(0, '#f4d872'); eg.addColorStop(.65, '#c99c30'); eg.addColorStop(1, '#4e3a12');
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, er, 0, 6.283); ctx.fill();
+
+    // fine stone grain
+    ctx.save(); ctx.clip(outer);
+    for (let i = 0; i < w * h / 6; i++) {
+      ctx.fillStyle = rnd() < .5 ? `rgba(255, 255, 255, ${rnd() * .04})` : `rgba(0, 0, 0, ${rnd() * .1})`;
+      ctx.fillRect(x + rnd() * w, y + rnd() * h, 1, 1);
+    }
+    ctx.restore();
+  }
+
   // ---- layout + painting ----
   let geo = null;
   function sizeCanvas(cv, c, w, h, dpr) {
@@ -230,11 +346,15 @@
     paintPaper(x, y, pw, ph);
     const top = vh * .035;                                        // paper's resting gap from the top
 
-    // three figures across the centre
+    // the inkstone takes the left edge; three identical figures share the rest
     const D = Math.min(vh * .095, pw * .07);
-    const fh = Math.min(vh * .7, pw * .5);
-    const fy = y + D * 2.1 + (vh - top - D * 2.1 - fh) * .45;
-    [.25, .5, .75].forEach((fx, i) => drawFigure(POSES[i], x + pw * fx, fy, fh * (i === 1 ? 1.02 : 1), i + 1));
+    const below = D * 2.1, avail = vh - top - below;               // paper area under the paperweight
+    const sw = Math.min(pw * .2, avail * .62), sh = Math.min(avail * .86, sw * 1.55);
+    const sx = pw * .035, sy = below + (avail - sh) * .45;          // inkstone, in paper coords
+    const fh = Math.min(avail * .9, pw * .5);
+    const fy = y + below + (avail - fh) * .45;
+    const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
+    [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
 
     // paperweight, in its own canvas: it rests across the top centre of the paper
     const len = Math.min(pw * .5, D * 8), wm = D * 1.2;
@@ -244,7 +364,15 @@
     paintRod(wm + len / 2, D * .8, len, D);
     ctx = paperCtx;
 
-    geo = { top, offset: y, rodRest: top + D * .95 - D * .8, rodH: D * 2.4 };
+    // inkstone, in its own canvas: it slides in from the right to rest at the paper's left edge
+    const smg = sw * .2;
+    sizeCanvas(scanvas, stoneCtx, sw + 2 * smg, sh + 2 * smg, dpr);
+    ctx = stoneCtx; seed = 11;
+    paintInkstone(smg, smg, sw, sh);
+    ctx = paperCtx;
+
+    geo = { top, offset: y, rodRest: top + D * .95 - D * .8, rodH: D * 2.4,
+            stoneX: (vw - pw) / 2 + sx - smg, stoneY: top + sy - smg, stoneW: sw + 2 * smg };
     place();
   }
 
@@ -265,6 +393,10 @@
     const wy = geo.rodRest - (1 - p) * (geo.rodRest + geo.rodH + 20);
     weight.style.transform = `translate(-50%, ${wy}px)`;
     weight.style.visibility = p <= 0 ? 'hidden' : 'visible';
+    // the inkstone slides in from beyond the right edge to the paper's left edge
+    const sx = geo.stoneX + (1 - p) * (innerWidth - geo.stoneX + 30);
+    stone.style.transform = `translate(${sx}px, ${geo.stoneY}px)`;
+    stone.style.visibility = p <= 0 ? 'hidden' : 'visible';
   }
   paint();
   addEventListener('scroll', place, { passive: true });
