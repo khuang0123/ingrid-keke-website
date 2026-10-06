@@ -50,8 +50,8 @@ float height(vec2 s){
   float h = sheet(s);
   vec4 a = texture2D(txt, fit(uv, rise.x));
   vec4 b = texture2D(txt, fit(uv, rise.y));
-  // letters pressed up out of the sheet, the metal stretched smoothly around them
-  h += rise.x * (.024 * a.r + .008 * a.b) + rise.y * (.008 * b.g + .003 * b.a);
+  // seals pressed up out of the sheet: carved letters in the main seal, raised in the name seal
+  h += rise.x * .022 * a.r + rise.y * .016 * b.g;
   vec3 f = texture2D(fig, uv).rgb, fw = texture2D(figw, uv).rgb;
   h += dot(frise, .036 * f + .012 * fw);
   return h;
@@ -88,6 +88,9 @@ void main(){
   vec4 a = texture2D(txt, fit(uv, rise.x)); vec4 b = texture2D(txt, fit(uv, rise.y));
   float relief = clamp(rise.x * a.r + rise.y * b.g + dot(frise, texture2D(fig, uv).rgb), 0., 1.);
   alb = mix(alb, gold, relief * .4);
+  // carved strokes hold dark green patina; the name seal's cut-away ground does too
+  float ground2 = smoothstep(.1, .25, b.g) * (1. - smoothstep(.4, .6, b.g));
+  alb = mix(alb, vec3(.05, .075, .06), clamp(rise.x * a.b * .8 + rise.y * ground2 * .7, 0., 1.));
   alb *= .9 + .2 * g;
 
   float fill = clamp(dot(n, normalize(vec3(.6, -.4, .7))), 0., 1.);   // soft bounce light
@@ -168,11 +171,59 @@ void main(){
   const dome = (m, lo) => Math.sqrt(ss(Math.max(0, Math.min(1, (m - lo) / (1 - lo)))));  // rounded relief profile
   const skirt = (m, g) => { const v = ss(Math.min(1, m * g)); return v * v; };            // soft stretch around it
 
-  // gothic title font; try others with ?font=grenze or ?font=pirata
-  const gothic = GOTHIC_FONTS[new URLSearchParams(location.search).get('font')] || GOTHIC_FONTS.unifraktur;
+  // seal-script style Latin capitals, as centre-lines in a unit cell (y down)
+  // p(x, y) maps cell coords to canvas; curves are squared corners, like carved seal script
+  const M = (c, p, x, y) => c.moveTo(...p(x, y)), Ln = (c, p, x, y) => c.lineTo(...p(x, y));
+  const Q = (c, p, x1, y1, x, y) => c.quadraticCurveTo(...p(x1, y1), ...p(x, y));
+  const SEAL_GLYPHS = {
+    H: (p, c) => { M(c,p,0,0); Ln(c,p,0,1); M(c,p,1,0); Ln(c,p,1,1); M(c,p,0,.5); Ln(c,p,1,.5); },
+    E: (p, c) => { M(c,p,1,0); Ln(c,p,0,0); Ln(c,p,0,1); Ln(c,p,1,1); M(c,p,0,.5); Ln(c,p,.82,.5); },
+    R: (p, c) => { M(c,p,0,1); Ln(c,p,0,0); Ln(c,p,.72,0); Q(c,p,1,0,1,.26); Q(c,p,1,.52,.66,.52); Ln(c,p,0,.52);
+                   M(c,p,.5,.52); Q(c,p,1,.6,1,1); },
+    T: (p, c) => { M(c,p,0,0); Ln(c,p,1,0); M(c,p,.5,0); Ln(c,p,.5,1); },
+    I: (p, c) => { M(c,p,.5,0); Ln(c,p,.5,1); M(c,p,.12,0); Ln(c,p,.88,0); M(c,p,.12,1); Ln(c,p,.88,1); },
+    P: (p, c) => { M(c,p,0,1); Ln(c,p,0,0); Ln(c,p,.72,0); Q(c,p,1,0,1,.27); Q(c,p,1,.54,.72,.54); Ln(c,p,0,.54); },
+    L: (p, c) => { M(c,p,0,0); Ln(c,p,0,1); Ln(c,p,1,1); },
+    S: (p, c) => { M(c,p,1,.12); Q(c,p,1,0,.78,0); Ln(c,p,.24,0); Q(c,p,0,0,0,.25); Q(c,p,0,.5,.25,.5);
+                   Ln(c,p,.75,.5); Q(c,p,1,.5,1,.75); Q(c,p,1,1,.76,1); Ln(c,p,.22,1); Q(c,p,0,1,0,.88); },
+    N: (p, c) => { M(c,p,0,1); Ln(c,p,0,0); Ln(c,p,1,1); Ln(c,p,1,0); },
+    G: (p, c) => { M(c,p,1,.14); Q(c,p,1,0,.78,0); Ln(c,p,.24,0); Q(c,p,0,0,0,.25); Ln(c,p,0,.75);
+                   Q(c,p,0,1,.25,1); Ln(c,p,.75,1); Q(c,p,1,1,1,.75); Ln(c,p,1,.52); Ln(c,p,.52,.52); },
+    D: (p, c) => { M(c,p,0,0); Ln(c,p,0,1); Ln(c,p,.62,1); Q(c,p,1,1,1,.62); Ln(c,p,1,.38); Q(c,p,1,0,.62,0); c.closePath(); },
+    U: (p, c) => { M(c,p,0,0); Ln(c,p,0,.75); Q(c,p,0,1,.25,1); Ln(c,p,.75,1); Q(c,p,1,1,1,.75); Ln(c,p,1,0); },
+    A: (p, c) => { M(c,p,0,1); Ln(c,p,0,.3); Q(c,p,0,0,.3,0); Ln(c,p,.7,0); Q(c,p,1,0,1,.3); Ln(c,p,1,1);
+                   M(c,p,0,.56); Ln(c,p,1,.56); },
+  };
+
+  // value noise for chipped, stone-carved edges
+  function noise(W, H, cell, seed) {
+    const gw = Math.ceil(W / cell) + 2, gh = Math.ceil(H / cell) + 2, g = new Float32Array(gw * gh);
+    let s = seed; for (let i = 0; i < g.length; i++) { s = (s * 16807) % 2147483647; g[i] = s / 2147483647; }
+    const out = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const fx = x / cell, fy = y / cell, ix = fx | 0, iy = fy | 0, tx = ss(fx - ix), ty = ss(fy - iy);
+      const a = g[iy * gw + ix], b = g[iy * gw + ix + 1], c = g[(iy + 1) * gw + ix], d = g[(iy + 1) * gw + ix + 1];
+      out[y * W + x] = (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
+    }
+    return out;
+  }
+  let seedN = 1;
+  // roughen a mask's edges: soften, perturb with noise, re-threshold
+  function rough(m, scale, amt) {
+    const W = curW, H = curH;
+    const soft = boxBlur(m, W, H, Math.max(1, scale * .35));
+    const n1 = noise(W, H, Math.max(2, scale), 97 * seedN++), n2 = noise(W, H, Math.max(2, scale * .35), 31 * seedN++);
+    for (let i = 0; i < soft.length; i++) {
+      const v = soft[i] + ((n1[i] - .5) * .7 + (n2[i] - .5) * .3) * amt;
+      soft[i] = ss(Math.max(0, Math.min(1, (v - .38) / .24)));
+    }
+    return soft;
+  }
+  let curW = 0, curH = 0;
 
   function buildRelief() {
     const W = Math.min(1100, innerWidth), k = W / innerWidth, H = Math.round(innerHeight * k);
+    curW = W; curH = H; seedN = 1;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d', { willReadFrequently: true });
     const alpha = () => {
@@ -189,26 +240,66 @@ void main(){
       return out;
     };
 
-    // words, laid out like the SVG title
-    const box = Math.min(innerWidth * .92, 1100) * k;
-    const top = (H - box * .32) / 2;
-    function text(str, size, g, spacing, baseline) {
-      ctx.clearRect(0, 0, W, H);
-      ctx.font = `${g.weight} ${size}px "${g.family}", "Helvetica Neue", Helvetica, Arial, serif`;
-      ctx.fillStyle = '#fff';
-      const ws = [...str].map(ch => ctx.measureText(ch).width);
-      let x = (W - (ws.reduce((p, q) => p + q, 0) + spacing * (str.length - 1))) / 2;
-      [...str].forEach((ch, i) => { ctx.fillText(ch, x, baseline); x += ws[i] + spacing; });
-      return alpha();
+    // ---- seals: English letters drawn in a seal-script manner (even strokes, squared
+    // curves, stretched to fill their cells), with chipped, stone-carved edges ----
+    const Sz = Math.min(H * .46, W * .5);                       // main seal size
+    const cx = W / 2, top = H * .5 - Sz * .7;
+    const seal1 = { x: cx - Sz / 2, y: top, w: Sz, h: Sz };
+    const seal2 = { w: Sz * .8, h: Sz * .34 };
+    seal2.x = cx - seal2.w / 2; seal2.y = top + Sz + Sz * .08;
+
+    const blank = () => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); };
+    const roundRect = (r, rad) => {
+      ctx.beginPath();
+      ctx.moveTo(r.x + rad, r.y); ctx.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, rad);
+      ctx.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, rad); ctx.arcTo(r.x, r.y + r.h, r.x, r.y, rad);
+      ctx.arcTo(r.x, r.y, r.x + r.w, r.y, rad); ctx.closePath();
+    };
+    function sealText(rows, r, stroke) {          // strokes of each row's letters, filling the box
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = stroke; ctx.lineJoin = 'round'; ctx.lineCap = 'square';
+      const gap = stroke * 1.6, rh = (r.h - gap * (rows.length - 1)) / rows.length;
+      rows.forEach((row, ri) => {
+        const n = row.length, cw = (r.w - gap * (n - 1)) / n;
+        [...row].forEach((ch, ci) => {
+          const x0 = r.x + ci * (cw + gap) + stroke / 2, y0 = r.y + ri * (rh + gap) + stroke / 2;
+          const sx = cw - stroke, sy = rh - stroke, ph = ri * 3.1 + ci * 1.7;
+          // a slight hand-carved waver along each stroke
+          const wav = (x, y) => [x0 + (x + .022 * Math.sin(y * 6.3 + ph)) * sx,
+                                 y0 + (y + .022 * Math.sin(x * 5.7 + ph * 1.3)) * sy];
+          ctx.beginPath();
+          SEAL_GLYPHS[ch](wav, ctx);
+          ctx.stroke();
+        });
+      });
     }
-    const tSize = box * .17, sSize = box * .05;
-    const t1 = text('Her Triplets', tSize, gothic, box * .006, top + box * .175);
-    // subtitle in the most legible gothic so it reads clearly at a small size
-    const s1 = text('by Ingrid Huang', sSize, GOTHIC_FONTS.grenze, box * .012, top + box * .268);
-    const tA = boxBlur(t1.slice(), W, H, tSize * .025), tB = boxBlur(t1, W, H, tSize * .12);
-    const sA = boxBlur(s1.slice(), W, H, sSize * .045), sB = boxBlur(s1, W, H, sSize * .4);
-    upload(0, texTxt, W, H, pack([tA, sA, tB, sB],
-      [m => dome(m, .3), m => dome(m, .25), m => skirt(m, 2.2), m => skirt(m, 3.5)]));
+    const inset = (r, d) => ({ x: r.x + d, y: r.y + d, w: r.w - 2 * d, h: r.h - 2 * d });
+
+    // main seal (letters carved into a solid block)
+    blank(); ctx.fillStyle = '#fff'; roundRect(seal1, Sz * .025); ctx.fill();
+    const block1 = rough(alpha(), Sz * .02, .3);
+    blank(); sealText(['HER', 'TRIP', 'LETS'], inset(seal1, Sz * .09), Sz * .036);
+    const carve1 = rough(alpha(), Sz * .01, .4);
+
+    // name seal (raised letters and border, background cut away)
+    const st2 = seal2.h * .065;
+    blank(); ctx.fillStyle = '#fff'; roundRect(seal2, Sz * .015); ctx.fill();
+    const block2 = rough(alpha(), Sz * .015, .3);
+    blank(); ctx.strokeStyle = '#fff'; ctx.lineWidth = st2;
+    roundRect(inset(seal2, st2 / 2), Sz * .012); ctx.stroke();
+    sealText(['INGRID', 'HUANG'], inset(seal2, st2 * 2.6), st2 * .9);
+    const raised2 = rough(alpha(), Sz * .007, .35);
+
+    // height fields: R main seal, G name seal; B carved letters, A raised letters (for colouring)
+    const c1 = boxBlur(carve1.slice(), W, H, Sz * .004), b1 = boxBlur(block1, W, H, Sz * .006);
+    const r2 = boxBlur(raised2.slice(), W, H, Sz * .004), b2 = boxBlur(block2, W, H, Sz * .006);
+    const h1 = new Float32Array(W * H), h2 = new Float32Array(W * H);
+    for (let i = 0; i < h1.length; i++) {
+      h1[i] = dome(b1[i], .2) * (1 - .8 * ss(Math.min(1, c1[i] * 1.2)));
+      h2[i] = Math.max(.3 * dome(b2[i], .2), dome(r2[i], .2));
+    }
+    const id = m => Math.max(0, Math.min(1, m));
+    upload(0, texTxt, W, H, pack([h1, h2, carve1, raised2], [id, id, id, id]));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     // figures, drawn from the same silhouettes as the SVGs, at their on-screen positions
     const narrow = [], wide = [];
@@ -243,10 +334,6 @@ void main(){
   buildRelief();
   let rebuild;
   addEventListener('resize', () => { resize(); clearTimeout(rebuild); rebuild = setTimeout(buildRelief, 200); });
-  // rebuild once the gothic fonts are ready
-  Promise.all([...new Set([gothic, GOTHIC_FONTS.grenze])].map(g =>
-    new FontFace(g.family, `url(${g.src})`, { weight: String(g.weight) }).load().then(f => document.fonts.add(f))))
-    .then(buildRelief, buildRelief);
 
   // static sheet: only redraw when the relief changes (scrolling) or the window resizes
   (function frame() {
