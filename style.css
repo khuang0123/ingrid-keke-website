@@ -1,6 +1,6 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { background: #031a2b; }
+html { background: #5b7378; }
 
 body {
   min-height: 100vh;
@@ -8,7 +8,7 @@ body {
   font-family: "Helvetica Neue", "Avenir Next", Helvetica, Arial, sans-serif;
   overflow-x: hidden;
   /* fallback if WebGL is unavailable */
-  background: radial-gradient(120% 90% at 30% 20%, #0c5d7a 0%, #06324f 45%, #1b1348 100%) fixed;
+  background: radial-gradient(120% 90% at 30% 20%, #cfe3e6 0%, #6f8a90 50%, #2a3b42 100%) fixed;
 }
 
 #water {
