@@ -1,3 +1,6 @@
+// shared between the water renderer and the scroll/intro timeline
+const shared = { hasGL: false, rise: [0, 0] }; // rise: 0 = deep underwater, 1 = surfaced
+
 /* ---------- water: fullscreen fragment shader ---------- */
 (function () {
   const canvas = document.getElementById('water');
@@ -8,8 +11,19 @@
   const fs = `
 precision highp float;
 uniform vec2 res; uniform float t; uniform vec2 mouse;
+uniform sampler2D txt;  // r: title  g: subtitle  b/a: wide blurs of each (ripples, deep blur)
+uniform vec2 rise;      // title, subtitle: 0 = deep, 1 = surfaced
 
 float sabs(float x, float k){ return sqrt(x*x + k); } // smooth |x|: sharp but clean creases
+
+// The words are part of the liquid itself: a soft height field (blurred letter
+// masks) that grows out of the surface as they rise. Below the surface they are
+// only glimpsed through the water, smaller and warped.
+vec2 lay(vec2 uv, float r, float ph){
+  uv.y -= sin(t * .75 + ph) * .004 * smoothstep(.8, 1., r);        // gentle float once surfaced
+  return .5 + (uv - .5) / (.35 + .65 * r);                          // smaller when deeper
+}
+float emerge(float r){ return smoothstep(.62, 1., r); }             // how far it stands out of the water
 
 // liquid surface: iteratively warped flow gives long curving folds like poured silk/metal
 float height(vec2 s){
@@ -27,6 +41,14 @@ float height(vec2 s){
   float d = length(s - m);
   h += sin(d*40. - t*3.) * exp(-d*9.) * .012;
 
+  // letters pushing up through the surface, with rings spreading as they break through
+  vec2 uv = s * vec2(res.y / res.x, 1.) + .5;
+  vec4 a = texture2D(txt, lay(uv, rise.x, 0.));
+  vec4 b = texture2D(txt, lay(uv, rise.y, 1.3));
+  float e1 = emerge(rise.x), e2 = emerge(rise.y);
+  h += e1 * .034 * a.r + e2 * .010 * b.g;
+  h += a.b * sin(a.b * 28. - t * 4.) * e1 * (1. - e1) * .02
+     + b.a * sin(b.a * 28. - t * 4.) * e2 * (1. - e2) * .01;
   return h;
 }
 
@@ -47,6 +69,18 @@ vec3 env(vec3 r){
   return c;
 }
 
+// higher-contrast chrome for the risen letters, like polished liquid metal
+vec3 chrome(vec3 r){
+  float g = r.y*.85 + r.x*.4;
+  vec3 c = mix(vec3(.06, .09, .11), vec3(.50, .60, .64), smoothstep(-.8, -.05, g));
+  c = mix(c, vec3(.95, 1., 1.), smoothstep(.05, .7, g));
+  c += vec3(1.)           * smoothstep(.88, .93, dot(r, normalize(vec3(-.55, .55, .62))));
+  c += vec3(.86, .97, 1.) * smoothstep(.90, .95, dot(r, normalize(vec3( .65,-.35, .65)))) * .8;
+  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 50.) * .8;
+  c *= 1. - .7 * exp(-abs(r.x + .26) * 18.);
+  return c;
+}
+
 void main(){
   vec2 uv = gl_FragCoord.xy / res;
   vec2 s = (gl_FragCoord.xy - .5*res) / res.y;
@@ -56,7 +90,8 @@ void main(){
   float hy = height(s + vec2(0., ep)) - height(s - vec2(0., ep));
   vec3 n = normalize(vec3(-hx, -hy, 2.*ep / .55));
 
-  vec3 refl = env(reflect(vec3(0., 0., -1.), n));
+  vec3 rv = reflect(vec3(0., 0., -1.), n);
+  vec3 refl = env(rv);
 
   // clear aqua water beneath, glimpsed through the flatter parts
   vec2 refr = uv + n.xy * .1;
@@ -66,11 +101,22 @@ void main(){
   float F = clamp(.62 + 3. * slope, 0., 1.);  // gentle sheen, more see-through water
   vec3 col = mix(under, refl, F);
 
+  // submerged letters, seen through (and warped by) the moving water; blurrier when deeper
+  vec2 w = refr + vec2(sin(uv.y * 28. + t * 1.9), cos(uv.x * 22. - t * 1.5)) * .006;
+  float e1 = emerge(rise.x), e2 = emerge(rise.y);
+  vec4 a = texture2D(txt, lay(w, rise.x, 0.));
+  vec4 b = texture2D(txt, lay(w, rise.y, 1.3));
+  float sub = mix(a.b * 1.6, a.r, rise.x) * smoothstep(.0, .55, rise.x) * (1. - e1)
+            + mix(b.a * 1.6, b.g, rise.y) * smoothstep(.0, .55, rise.y) * (1. - e2);
+  col = mix(col, vec3(.86, .94, .96), clamp(sub, 0., 1.) * .55);
+
+  // risen letters: solid polished liquid metal
+  float lm = clamp(e1 * smoothstep(0., .35, texture2D(txt, lay(uv, rise.x, 0.)).r)
+                 + e2 * smoothstep(0., .35, texture2D(txt, lay(uv, rise.y, 1.3)).g), 0., 1.);
+  col = mix(col, chrome(rv), lm);
+
   col *= vec3(.94, 1., 1.04);                 // cool watery tint
   col = col / (1. + col * .35) * 1.3;         // soften blown-out highlights
-  // calm the brightest glare behind the centred title so the text stays legible
-  float centre = exp(-dot(s * vec2(.9, 2.2), s * vec2(.9, 2.2)) * 3.);
-  col = mix(col, min(col, vec3(.66, .76, .80)), centre * .7);
   gl_FragColor = vec4(col, 1.);
 }`;
 
@@ -95,7 +141,81 @@ void main(){
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
   const U = n => gl.getUniformLocation(prog, n);
-  const uRes = U('res'), uT = U('t'), uMouse = U('mouse');
+  const uRes = U('res'), uT = U('t'), uMouse = U('mouse'), uRise = U('rise');
+  shared.hasGL = true;
+  document.documentElement.classList.add('gl');
+
+  // ---- letter masks: draw the words, blur them into soft height fields ----
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                        [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
+    gl.texParameteri(gl.TEXTURE_2D, k, v);
+  gl.uniform1i(U('txt'), 0);
+
+  function boxBlur(src, w, h, r) {             // 3 box passes each way ≈ gaussian
+    r = Math.max(1, Math.round(r));
+    let a = src, b = new Float32Array(src.length);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let y = 0; y < h; y++) {            // horizontal
+        let acc = 0; const o = y * w;
+        for (let x = -r; x < w + r; x++) {
+          acc += (x + r < w ? a[o + x + r] : 0) - (x - r - 1 >= 0 ? a[o + x - r - 1] : 0);
+          if (x >= 0 && x < w) b[o + x] = acc / (2 * r + 1);
+        }
+      }
+      for (let x = 0; x < w; x++) {            // vertical
+        let acc = 0;
+        for (let y = -r; y < h + r; y++) {
+          acc += (y + r < h ? b[(y + r) * w + x] : 0) - (y - r - 1 >= 0 ? b[(y - r - 1) * w + x] : 0);
+          if (y >= 0 && y < h) a[y * w + x] = acc / (2 * r + 1);
+        }
+      }
+    }
+    return a;
+  }
+
+  function buildLetters() {
+    const W = Math.min(1100, innerWidth), k = W / innerWidth, H = Math.round(innerHeight * k);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const box = Math.min(innerWidth * .92, 1100) * k;          // same layout as the SVG title
+    const top = (H - box * .32) / 2;
+    const font = '"Helvetica Neue", "Avenir Next", Helvetica, Arial, sans-serif';
+    function mask(text, size, weight, spacing, baseline) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.font = `${weight} ${size}px ${font}`;
+      ctx.fillStyle = '#fff';
+      const ws = [...text].map(ch => ctx.measureText(ch).width);
+      let x = (W - (ws.reduce((p, q) => p + q, 0) + spacing * (text.length - 1))) / 2;
+      [...text].forEach((ch, i) => { ctx.fillText(ch, x, baseline); x += ws[i] + spacing; });
+      const d = ctx.getImageData(0, 0, W, H).data, m = new Float32Array(W * H);
+      for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] / 255;
+      return m;
+    }
+    const tSize = box * .15, sSize = box * .036;
+    const t1 = mask('Her Triplets', tSize, 500, box * .006, top + box * .175);
+    const s1 = mask('by Ingrid Huang', sSize, 500, box * .016, top + box * .268);
+    const tA = boxBlur(t1.slice(), W, H, tSize * .03), tB = boxBlur(t1, W, H, tSize * .16);
+    const sA = boxBlur(s1.slice(), W, H, sSize * .06),  sB = boxBlur(s1, W, H, sSize * .5);
+    const out = new Uint8Array(W * H * 4);
+    // store the rounded letter profile itself, so 8-bit steps aren't amplified in the shader
+    const ss = x => x * x * (3 - 2 * x);
+    const dome = (m, lo) => Math.sqrt(ss(Math.max(0, Math.min(1, (m - lo) / (1 - lo)))));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, o = ((H - 1 - y) * W + x) * 4;        // flip: GL origin is bottom-left
+      out[o] = 255 * dome(tA[i], .3);
+      out[o + 1] = 255 * dome(sA[i], .25);
+      out[o + 2] = Math.min(255, tB[i] * 255 * 2.2);
+      out[o + 3] = Math.min(255, sB[i] * 255 * 3.5);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, out);
+  }
+  buildLetters();
+  let rebuild;
+  addEventListener('resize', () => { clearTimeout(rebuild); rebuild = setTimeout(buildLetters, 200); });
   const mouse = { x: -9, y: -9, tx: -9, ty: -9 }; // off-screen until the pointer moves
   addEventListener('pointermove', e => {
     if (mouse.x < -1) { mouse.x = e.clientX / innerWidth; mouse.y = 1 - e.clientY / innerHeight; }
@@ -116,6 +236,7 @@ void main(){
     gl.uniform2f(uRes, canvas.width, canvas.height);
     gl.uniform1f(uT, (performance.now() - t0) / 1000);
     gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.uniform2f(uRise, shared.rise[0], shared.rise[1]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     requestAnimationFrame(frame);
   })();
@@ -168,7 +289,9 @@ scrollTo(0, 0);
       phase: n * 1.7,
     };
   });
-  const titles = items.filter(i => i.kind !== 'figure');
+  // with WebGL the words are rendered in the water itself; the SVG title is only a fallback
+  const titles = shared.hasGL ? [] : items.filter(i => i.kind !== 'figure');
+  const starts = [...document.querySelectorAll('.title-svg .depth')].map(el => +el.dataset.start || 0);
   const figures = items.filter(i => i.kind === 'figure');
 
   function render(it, d, s) {
@@ -205,6 +328,10 @@ scrollTo(0, 0);
     // 1–2) after a beat of pure water, the words float up from the deep
     // 3)   scrolling sinks the words back down while the figures float up
     const sink = easeIn(clamp(P / .45));
+    starts.forEach((st, i) => {
+      const up = reduce ? 1 : ease(clamp((ms - st) / 5000));
+      shared.rise[i] = 1 - Math.max(1 - up, sink);
+    });
     titles.forEach(it => {
       const up = reduce ? 1 : ease(clamp((ms - it.start) / 5000));
       render(it, Math.max(1 - up, sink), s);

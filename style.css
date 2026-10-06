@@ -36,6 +36,7 @@ body {
 }
 
 .title-svg { width: min(92vw, 1100px); height: auto; overflow: visible; }
+.gl .title-svg { opacity: 0; } /* WebGL renders the words as liquid metal instead */
 /* Contourless text: flat translucent fill only — no stroke, no outline, no shadow. */
 .title-svg text {
   fill: rgba(236, 252, 255, .92);
