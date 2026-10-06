@@ -121,54 +121,98 @@ void main(){
   })();
 })();
 
-/* ---------- hero text: emerge after 1s ---------- */
-setTimeout(() => {
-  document.querySelectorAll('.line').forEach(el => el.classList.add('go'));
-}, 1000);
-
-/* ---------- scroll timeline: title sinks back down, then the figures surface ---------- */
-// Nothing moves across the screen: everything stays in place and only grows/shrinks
-// (rises/sinks) through the depth of the water.
+/* ---------- rising from / sinking into the water ----------
+   Every element stays in place on screen. "Depth" (0 = at the surface, 1 = deep)
+   controls how it looks: deeper means smaller, fainter, blurrier and more warped
+   by the moving water above it. */
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 scrollTo(0, 0);
 
 (function () {
-  const hero = document.querySelector('.hero');
-  const figs = [...document.querySelectorAll('.figure')];
-  const ease = x => 1 - Math.pow(1 - x, 3);
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const ease = x => x * x * (3 - 2 * x);              // slow from the deep, gentle arrival
+  const easeIn = x => x * x;
   const clamp = x => Math.max(0, Math.min(1, x));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // depth 0 = at the surface, 1 = deep underwater
-  function depth(el, d) {
-    el.style.opacity = 1 - d;
-    el.style.transform = `scale(${1 - .85 * d})`;
-    el.style.filter = `blur(${d * 10}px) brightness(${1 - .4 * d})`;
+  // filter sizes are in each SVG's own units (title viewBox is 1000 wide, figures 200)
+  const look = {
+    title:    { freq: '0.004 0.012', disp: 70, blur: 9, bob: 8 },
+    subtitle: { freq: '0.006 0.02',  disp: 40, blur: 6, bob: 8 },
+    figure:   { freq: '0.012 0.03',  disp: 34, blur: 5, bob: 9 },
+  };
+
+  let n = 0;
+  const items = [...document.querySelectorAll('.depth')].map(el => {
+    const kind = el.dataset.kind, L = look[kind];
+    const svg = el.ownerSVGElement;
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS(SVGNS, 'defs'); svg.prepend(defs); }
+    const id = 'uw' + (++n);
+    const f = document.createElementNS(SVGNS, 'filter');
+    f.setAttribute('id', id);
+    for (const [k, v] of Object.entries({ x: '-40%', y: '-40%', width: '180%', height: '180%' })) f.setAttribute(k, v);
+    f.setAttribute('color-interpolation-filters', 'sRGB');
+    f.innerHTML =
+      `<feTurbulence type="fractalNoise" baseFrequency="${L.freq}" numOctaves="2" seed="${n * 7}" result="noise"/>` +
+      `<feOffset in="noise" dx="0" dy="0" result="flow"/>` +
+      `<feDisplacementMap in="SourceGraphic" in2="flow" scale="0" xChannelSelector="R" yChannelSelector="G" result="warp"/>` +
+      `<feGaussianBlur in="warp" stdDeviation="0"/>`;
+    defs.appendChild(f);
+    return {
+      el, kind, L, id, filtered: false,
+      start: +el.dataset.start || 0,
+      offset: f.querySelector('feOffset'),
+      warp: f.querySelector('feDisplacementMap'),
+      blur: f.querySelector('feGaussianBlur'),
+      phase: n * 1.7,
+    };
+  });
+  const titles = items.filter(i => i.kind !== 'figure');
+  const figures = items.filter(i => i.kind === 'figure');
+
+  function render(it, d, s) {
+    const L = it.L, el = it.el;
+    const t = s + it.phase;
+    el.style.opacity = Math.pow(1 - d, 1.4);
+    const scale = 1 - .65 * d;
+    const sway = reduce ? 0 : Math.sin(t * .8) * 3 * d;                 // drifting while submerged
+    const bob = reduce ? 0 : Math.sin(t * .75) * L.bob * (1 - d) * .5;  // gentle float at the surface
+    el.style.transform = `translate(${sway}px, ${bob}px) scale(${scale})`;
+
+    if (d < .002) {               // at the surface: crisp, no water in front of it
+      if (it.filtered) { el.removeAttribute('filter'); it.filtered = false; }
+      return;
+    }
+    if (!it.filtered) { el.setAttribute('filter', `url(#${it.id})`); it.filtered = true; }
+    // the water above keeps moving, so the warp ripples continuously
+    it.offset.setAttribute('dx', (Math.sin(t * .9) * 40).toFixed(1));
+    it.offset.setAttribute('dy', (Math.cos(t * .7) * 30).toFixed(1));
+    it.warp.setAttribute('scale', (L.disp * Math.pow(d, .8)).toFixed(1));
+    it.blur.setAttribute('stdDeviation', (L.blur * d).toFixed(2));
   }
 
-  function update() {
+  // the intro clock starts once the page has fully loaded, so it always opens on pure water
+  let loadedAt = Infinity;
+  const markLoaded = () => { loadedAt = performance.now(); };
+  if (document.readyState === 'complete') markLoaded(); else addEventListener('load', markLoaded);
+
+  (function frame(now) {
+    const s = now / 1000, ms = now - loadedAt;
     const max = document.documentElement.scrollHeight - innerHeight;
     const P = max > 0 ? clamp(scrollY / max) : 0;
 
-    // title sinks away during the first part of the scroll
-    const q = ease(clamp(P / .22));
-    depth(hero, q);
-    hero.style.visibility = q >= 1 ? 'hidden' : '';
-
-    // figures surface one after another
-    const prog = clamp((P - .18) / .78);
-    figs.forEach(fig => {
-      const delay = parseFloat(fig.dataset.delay) || 0;
-      const p = clamp((prog - delay * .6) / .5);
-      const e = ease(p);
-      depth(fig, 1 - e);
-      // slight waver while ascending, and a tiny swell as it breaks the surface
-      const sc = .15 + .85 * e + (p > .8 ? Math.sin(p * Math.PI) * .03 : 0);
-      const sk = Math.sin(p * 9) * 2 * (1 - e);
-      fig.style.transform = `scale(${sc}) skewX(${sk}deg)`;
-      fig.firstElementChild.classList.toggle('on', p >= 1);
+    // 1–2) after a beat of pure water, the words float up from the deep
+    // 3)   scrolling sinks the words back down while the figures float up
+    const sink = easeIn(clamp(P / .45));
+    titles.forEach(it => {
+      const up = reduce ? 1 : ease(clamp((ms - it.start) / 5000));
+      render(it, Math.max(1 - up, sink), s);
     });
-  }
-  addEventListener('scroll', update, { passive: true });
-  addEventListener('resize', update);
-  update();
+    figures.forEach((it, i) => {
+      const up = ease(clamp((P - .04 - i * .12) / .6));
+      render(it, 1 - up, s);
+    });
+    requestAnimationFrame(frame);
+  })(performance.now());
 })();
