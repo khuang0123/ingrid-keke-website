@@ -47,8 +47,11 @@ float height(vec2 s){
   vec4 b = texture2D(txt, lay(uv, rise.y, 1.3));
   float e1 = emerge(rise.x), e2 = emerge(rise.y);
   h += e1 * .034 * a.r + e2 * .010 * b.g;
-  h += a.b * sin(a.b * 28. - t * 4.) * e1 * (1. - e1) * .02
-     + b.a * sin(b.a * 28. - t * 4.) * e2 * (1. - e2) * .01;
+  // water clinging to the letters (meniscus): a smooth concave skirt that rises with them
+  // and is dragged up highest while they break through, then relaxes
+  float pull1 = e1 * .006 + 4. * e1 * (1. - e1) * .013;
+  float pull2 = e2 * .002 + 4. * e2 * (1. - e2) * .004;
+  h += pull1 * a.b + pull2 * b.a;
   return h;
 }
 
@@ -102,17 +105,20 @@ void main(){
   vec3 col = mix(under, refl, F);
 
   // submerged letters, seen through (and warped by) the moving water; blurrier when deeper
-  vec2 w = refr + vec2(sin(uv.y * 28. + t * 1.9), cos(uv.x * 22. - t * 1.5)) * .006;
+  // (warped by a water wobble only, not the surface normal, so the letters' own slopes
+  //  never shift a ghost copy of them)
+  vec2 wob = vec2(sin(uv.y * 26. + uv.x * 9. + t * 1.9), cos(uv.x * 21. - uv.y * 7. - t * 1.5)) * .005;
   float e1 = emerge(rise.x), e2 = emerge(rise.y);
-  vec4 a = texture2D(txt, lay(w, rise.x, 0.));
-  vec4 b = texture2D(txt, lay(w, rise.y, 1.3));
+  vec4 a = texture2D(txt, lay(uv + wob * (.4 + 2. * (1. - rise.x)), rise.x, 0.));
+  vec4 b = texture2D(txt, lay(uv + wob * (.4 + 2. * (1. - rise.y)), rise.y, 1.3));
   float sub = mix(a.b * 1.6, a.r, rise.x) * smoothstep(.0, .55, rise.x) * (1. - e1)
             + mix(b.a * 1.6, b.g, rise.y) * smoothstep(.0, .55, rise.y) * (1. - e2);
   col = mix(col, vec3(.86, .94, .96), clamp(sub, 0., 1.) * .55);
 
   // risen letters: solid polished liquid metal
-  float lm = clamp(e1 * smoothstep(0., .35, texture2D(txt, lay(uv, rise.x, 0.)).r)
-                 + e2 * smoothstep(0., .35, texture2D(txt, lay(uv, rise.y, 1.3)).g), 0., 1.);
+  // water film grades smoothly into metal up the sides of the letters
+  float lm = clamp(e1 * smoothstep(.1, .7, texture2D(txt, lay(uv, rise.x, 0.)).r)
+                 + e2 * smoothstep(.1, .7, texture2D(txt, lay(uv, rise.y, 1.3)).g), 0., 1.);
   col = mix(col, chrome(rv), lm);
 
   col *= vec3(.94, 1., 1.04);                 // cool watery tint
@@ -175,16 +181,19 @@ void main(){
     return a;
   }
 
+  // gothic title font; try others with ?font=grenze or ?font=pirata
+  const gothic = GOTHIC_FONTS[new URLSearchParams(location.search).get('font')] || GOTHIC_FONTS.unifraktur;
+
   function buildLetters() {
     const W = Math.min(1100, innerWidth), k = W / innerWidth, H = Math.round(innerHeight * k);
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d', { willReadFrequently: true });
     const box = Math.min(innerWidth * .92, 1100) * k;          // same layout as the SVG title
     const top = (H - box * .32) / 2;
-    const font = '"Helvetica Neue", "Avenir Next", Helvetica, Arial, sans-serif';
-    function mask(text, size, weight, spacing, baseline) {
+    const font = `"${gothic.family}", "Helvetica Neue", Helvetica, Arial, serif`;
+    function mask(text, size, weight, spacing, baseline, fam = font) {
       ctx.clearRect(0, 0, W, H);
-      ctx.font = `${weight} ${size}px ${font}`;
+      ctx.font = `${weight} ${size}px ${fam}`;
       ctx.fillStyle = '#fff';
       const ws = [...text].map(ch => ctx.measureText(ch).width);
       let x = (W - (ws.reduce((p, q) => p + q, 0) + spacing * (text.length - 1))) / 2;
@@ -193,11 +202,13 @@ void main(){
       for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] / 255;
       return m;
     }
-    const tSize = box * .15, sSize = box * .036;
-    const t1 = mask('Her Triplets', tSize, 500, box * .006, top + box * .175);
-    const s1 = mask('by Ingrid Huang', sSize, 500, box * .016, top + box * .268);
-    const tA = boxBlur(t1.slice(), W, H, tSize * .03), tB = boxBlur(t1, W, H, tSize * .16);
-    const sA = boxBlur(s1.slice(), W, H, sSize * .06),  sB = boxBlur(s1, W, H, sSize * .5);
+    const tSize = box * .17, sSize = box * .05;
+    const t1 = mask('Her Triplets', tSize, gothic.weight, box * .006, top + box * .175);
+    // subtitle in the most legible gothic so it reads clearly at a small size
+    const sub = GOTHIC_FONTS.grenze;
+    const s1 = mask('by Ingrid Huang', sSize, sub.weight, box * .012, top + box * .268, `"${sub.family}", serif`);
+    const tA = boxBlur(t1.slice(), W, H, tSize * .025), tB = boxBlur(t1, W, H, tSize * .12);
+    const sA = boxBlur(s1.slice(), W, H, sSize * .045),  sB = boxBlur(s1, W, H, sSize * .4);
     const out = new Uint8Array(W * H * 4);
     // store the rounded letter profile itself, so 8-bit steps aren't amplified in the shader
     const ss = x => x * x * (3 - 2 * x);
@@ -206,14 +217,20 @@ void main(){
       const i = y * W + x, o = ((H - 1 - y) * W + x) * 4;        // flip: GL origin is bottom-left
       out[o] = 255 * dome(tA[i], .3);
       out[o + 1] = 255 * dome(sA[i], .25);
-      out[o + 2] = Math.min(255, tB[i] * 255 * 2.2);
-      out[o + 3] = Math.min(255, sB[i] * 255 * 3.5);
+      // concave meniscus skirt, shaped here (before 8-bit storage) to keep it smooth
+      const sk = (m, g) => { const v = ss(Math.min(1, m * g)); return 255 * v * v; };
+      out[o + 2] = sk(tB[i], 2.2);
+      out[o + 3] = sk(sB[i], 3.5);
     }
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, out);
   }
   buildLetters();
+  // rebuild once the gothic font is ready
+  Promise.all([...new Set([gothic, GOTHIC_FONTS.grenze])].map(g =>
+    new FontFace(g.family, `url(${g.src})`, { weight: String(g.weight) }).load().then(f => document.fonts.add(f))))
+    .then(buildLetters, buildLetters);
   let rebuild;
   addEventListener('resize', () => { clearTimeout(rebuild); rebuild = setTimeout(buildLetters, 200); });
   const mouse = { x: -9, y: -9, tx: -9, ty: -9 }; // off-screen until the pointer moves
