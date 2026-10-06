@@ -39,21 +39,26 @@ body {
   display: inline-block;
   color: rgba(236, 252, 255, .92);
   opacity: 0;
-  transform: translateY(55vh) scale(.96);
-  filter: blur(26px);
+  transform: scale(.18);
+  filter: blur(10px) brightness(.6);
   will-change: transform, opacity, filter;
 }
 .line.go {
   animation:
-    rise 3.6s cubic-bezier(.16, .84, .3, 1) forwards,
-    bob 7s ease-in-out 3.6s infinite;
+    rise 4.2s cubic-bezier(.3, .1, .25, 1) forwards,
+    bob 7s ease-in-out 4.2s infinite;
 }
-.l2.go { animation-delay: .7s, 4.3s; }
+.l2.go { animation-delay: .7s, 4.9s; }
 
+/* Rising from deep water toward the viewer: small, dim and blurred at depth,
+   wavering as it ascends, growing until it breaks the surface and settles. */
 @keyframes rise {
-  0%   { opacity: 0; transform: translateY(55vh) scale(.96); filter: blur(26px); }
-  45%  { opacity: .55; filter: blur(12px); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  0%   { opacity: 0;   transform: scale(.18) skewX(0deg);    filter: blur(10px) brightness(.6); }
+  25%  { opacity: .35; transform: scale(.32) skewX(2deg);    filter: blur(9px)  brightness(.7); }
+  50%  { opacity: .6;  transform: scale(.55) skewX(-1.6deg); filter: blur(6px)  brightness(.8); }
+  75%  { opacity: .85; transform: scale(.82) skewX(1deg);    filter: blur(2.5px) brightness(.92); }
+  90%  { opacity: 1;   transform: scale(1.03) skewX(0deg);   filter: blur(0) brightness(1.05); }
+  100% { opacity: 1;   transform: scale(1);                  filter: blur(0) brightness(1); }
 }
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
@@ -76,8 +81,8 @@ body {
   height: min(72vh, 620px);
   aspect-ratio: 200 / 520;
   opacity: 0;
-  transform: translateY(70vh);
-  filter: blur(24px);
+  transform: scale(.15);
+  filter: blur(10px) brightness(.6);
   will-change: transform, opacity, filter;
 }
 .figure.tall { height: min(80vh, 690px); }

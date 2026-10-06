@@ -136,8 +136,7 @@ setTimeout(() => {
 
   function update() {
     const rect = section.getBoundingClientRect();
-    // progress 0 when section top is at 85% of viewport, 1 once ~55% of the section has scrolled by
-    const start = innerHeight * .85;
+    const start = innerHeight * .45; // figures are on screen (still deep) before they start rising
     const span = innerHeight * 1.35;
     const prog = clamp((start - rect.top) / span);
 
@@ -146,8 +145,11 @@ setTimeout(() => {
       const p = clamp((prog - delay * .6) / .5);
       const e = ease(p);
       fig.style.opacity = e;
-      fig.style.transform = `translateY(${(1 - e) * 70}vh)`;
-      fig.style.filter = `blur(${(1 - e) * 24}px)`;
+      // rise from the depths toward the surface: grow, sharpen, brighten, waver slightly
+      const sc = .15 + .85 * e + Math.sin(p * Math.PI) * .03 * (p > .8 ? 1 : 0);
+      const sk = Math.sin(p * 9) * 2 * (1 - e);
+      fig.style.transform = `scale(${sc}) skewX(${sk}deg)`;
+      fig.style.filter = `blur(${(1 - e) * 10}px) brightness(${.6 + .4 * e})`;
       fig.firstElementChild.classList.toggle('on', p >= 1);
     });
   }
