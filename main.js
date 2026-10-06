@@ -1,7 +1,9 @@
-// shared between the water renderer and the scroll/intro timeline
-const shared = { hasGL: false, rise: [0, 0] }; // rise: 0 = deep underwater, 1 = surfaced
+// shared between the bronze renderer and the scroll timeline
+const shared = { hasGL: false, rise: [1, 1], fig: [0, 0, 0] }; // 0 = flat in the sheet, 1 = fully raised
 
-/* ---------- water: fullscreen fragment shader ---------- */
+/* ---------- bronze sheet: static relief rendered in a fragment shader ----------
+   The words and figures are part of the sheet itself: soft height fields that press
+   up out of the bronze, shaded with the same metal. */
 (function () {
   const canvas = document.getElementById('water');
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
@@ -10,78 +12,49 @@ const shared = { hasGL: false, rise: [0, 0] }; // rise: 0 = deep underwater, 1 =
   const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
   const fs = `
 precision highp float;
-uniform vec2 res; uniform float t; uniform vec2 mouse;
-uniform sampler2D txt;  // r: title  g: subtitle  b/a: wide blurs of each (ripples, deep blur)
-uniform vec2 rise;      // title, subtitle: 0 = deep, 1 = surfaced
+uniform vec2 res; uniform float dpr;
+uniform sampler2D txt;   // r: title  g: subtitle  b/a: wide soft skirts of each
+uniform sampler2D fig;   // rgb: figures 1–3
+uniform sampler2D figw;  // rgb: wide soft skirts of figures 1–3
+uniform vec2 rise;       // title, subtitle: 0 = flat, 1 = raised
+uniform vec3 frise;      // figures
 
-float sabs(float x, float k){ return sqrt(x*x + k); } // smooth |x|: sharp but clean creases
-
-// The words are part of the liquid itself: a soft height field (blurred letter
-// masks) that grows out of the surface as they rise. Below the surface they are
-// only glimpsed through the water, smaller and warped.
-vec2 lay(vec2 uv, float r, float ph){
-  uv.y -= sin(t * .75 + ph) * .004 * smoothstep(.8, 1., r);        // gentle float once surfaced
-  return .5 + (uv - .5) / (.35 + .65 * r);                          // smaller when deeper
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  f = f*f*f*(f*(f*6.-15.)+10.);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
 }
-float emerge(float r){ return smoothstep(.62, 1., r); }             // how far it stands out of the water
+float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++){ v += a*vnoise(p); p = p*2.03 + 5.3; a *= .5; } return v; }
 
-// liquid surface: iteratively warped flow gives long curving folds like poured silk/metal
-float height(vec2 s){
-  float tt = t * .18;
-  vec2 p = s * 1.3;
-  for (int i = 1; i < 7; i++) {
+float sabs(float x, float k){ return sqrt(x*x + k); }
+
+// draped sheet: big warped folds with soft creases where the metal bends over itself
+float sheet(vec2 s){
+  vec2 p = s * 2.3;
+  for (int i = 1; i < 6; i++) {
     float fi = float(i);
-    p.x += .55 / fi * sin(fi * p.y * .9 + tt + .3 * fi) + .25;
-    p.y += .45 / fi * cos(fi * p.x * .8 + tt * 1.1 + .5 * fi) - .15;
+    p.x += .55 / fi * sin(fi * p.y * .8 + 1.7 + .3 * fi) + .2;
+    p.y += .45 / fi * cos(fi * p.x * .7 + 2.3 + .5 * fi) - .1;
   }
-  float h = .5 * (sin(p.x * .9) + cos(p.y * .8)) + .14 * sin(p.x * 2.1 + p.y * 1.3);
-
-  // mouse ripple
-  vec2 m = (mouse - .5) * vec2(res.x/res.y, 1.);
-  float d = length(s - m);
-  h += sin(d*40. - t*3.) * exp(-d*9.) * .012;
-
-  // letters pushing up through the surface, with rings spreading as they break through
-  vec2 uv = s * vec2(res.y / res.x, 1.) + .5;
-  vec4 a = texture2D(txt, lay(uv, rise.x, 0.));
-  vec4 b = texture2D(txt, lay(uv, rise.y, 1.3));
-  float e1 = emerge(rise.x), e2 = emerge(rise.y);
-  h += e1 * .034 * a.r + e2 * .010 * b.g;
-  // water clinging to the letters (meniscus): a smooth concave skirt that rises with them
-  // and is dragged up highest while they break through, then relaxes
-  float pull1 = e1 * .006 + 4. * e1 * (1. - e1) * .013;
-  float pull2 = e2 * .002 + 4. * e2 * (1. - e2) * .004;
-  h += pull1 * a.b + pull2 * b.a;
+  float h = .5 * (sin(p.x * .8) + cos(p.y * .7));
+  h -= .45 * sabs(sin(p.x * .55 + p.y * .35 + .4), .005);  // long rolled folds
+  h -= .22 * sabs(sin(p.y * .9 - p.x * .4 + 2.1), .01);
   return h;
 }
 
-vec3 env(vec3 r){
-  vec3 dark  = vec3(.30, .38, .42);
-  vec3 mid   = vec3(.54, .63, .66);
-  vec3 light = vec3(.76, .84, .87);
-  float g = r.y*.85 + r.x*.4;
-  vec3 c = mix(dark, mid, smoothstep(-.8, -.05, g));
-  c = mix(c, light, smoothstep(.05, .7, g));
-  // crisp soft-box highlights
-  c += vec3(.95, 1., 1.)  * .45 * smoothstep(.90, .94, dot(r, normalize(vec3(-.55, .55, .62))));
-  c += vec3(.86, .97, 1.) * smoothstep(.92, .955, dot(r, normalize(vec3( .65,-.35, .65)))) * .35;
-  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 60.) * .35;   // thin horizon line
-  // dark streaks that trace the flow
-  c *= 1. - .35 * exp(-abs(r.x + .26) * 22.);
-  c *= 1. - .25 * exp(-abs(r.y + .28) * 22.);
-  return c;
-}
+vec2 fit(vec2 uv, float r){ return .5 + (uv - .5) / (.94 + .06 * r); } // swells slightly as it rises
 
-// higher-contrast chrome for the risen letters, like polished liquid metal
-vec3 chrome(vec3 r){
-  float g = r.y*.85 + r.x*.4;
-  vec3 c = mix(vec3(.06, .09, .11), vec3(.50, .60, .64), smoothstep(-.8, -.05, g));
-  c = mix(c, vec3(.95, 1., 1.), smoothstep(.05, .7, g));
-  c += vec3(1.)           * smoothstep(.88, .93, dot(r, normalize(vec3(-.55, .55, .62))));
-  c += vec3(.86, .97, 1.) * smoothstep(.90, .95, dot(r, normalize(vec3( .65,-.35, .65)))) * .8;
-  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 50.) * .8;
-  c *= 1. - .7 * exp(-abs(r.x + .26) * 18.);
-  return c;
+float height(vec2 s){
+  vec2 uv = s * vec2(res.y / res.x, 1.) + .5;
+  float h = sheet(s);
+  vec4 a = texture2D(txt, fit(uv, rise.x));
+  vec4 b = texture2D(txt, fit(uv, rise.y));
+  // letters pressed up out of the sheet, the metal stretched smoothly around them
+  h += rise.x * (.024 * a.r + .008 * a.b) + rise.y * (.008 * b.g + .003 * b.a);
+  vec3 f = texture2D(fig, uv).rgb, fw = texture2D(figw, uv).rgb;
+  h += dot(frise, .036 * f + .012 * fw);
+  return h;
 }
 
 void main(){
@@ -89,40 +62,38 @@ void main(){
   vec2 s = (gl_FragCoord.xy - .5*res) / res.y;
 
   float ep = 1. / res.y;
+  float h0 = height(s);
   float hx = height(s + vec2(ep, 0.)) - height(s - vec2(ep, 0.));
   float hy = height(s + vec2(0., ep)) - height(s - vec2(0., ep));
-  vec3 n = normalize(vec3(-hx, -hy, 2.*ep / .55));
+  vec3 n = normalize(vec3(-hx, -hy, 2.*ep / .9));
 
-  vec3 rv = reflect(vec3(0., 0., -1.), n);
-  vec3 refl = env(rv);
+  // satin bronze: light raking across the folds plus a soft metallic sheen
+  vec3 L = normalize(vec3(-.55, .60, .58));
+  vec3 Hv = normalize(L + vec3(0., 0., 1.));
+  float dif = clamp(dot(n, L), 0., 1.);
+  float sp = pow(clamp(dot(n, Hv), 0., 1.), 18.);
+  float g = hash(floor(gl_FragCoord.xy / dpr));               // fine sandy grain
+  float g2 = hash(floor(gl_FragCoord.xy / (2. * dpr)) + 7.);
 
-  // clear aqua water beneath, glimpsed through the flatter parts
-  vec2 refr = uv + n.xy * .1;
-  vec3 under = mix(vec3(.40, .62, .66), vec3(.82, .94, .95), refr.y);
+  // dark oxidised bronze dusted with gold, a green patina settling in the hollows
+  float m  = fbm(s * 3.2 + 3.);
+  float pt = fbm(s * 2.2 + 11.);
+  vec3 dark = vec3(.085, .07, .055), gold = vec3(.58, .40, .25);
+  float dust = smoothstep(.25, .85, m + (g2 - .5) * .22 + dif * .35);
+  vec3 alb = mix(dark, gold, dust);
+  float hollow = smoothstep(.3, -.9, h0);
+  alb = mix(alb, alb * vec3(.80, 1.08, .92) + vec3(.0, .025, .015), clamp(smoothstep(.45, .75, pt) * .6 + hollow * .5, 0., .8));
 
-  float slope = 1. - n.z;
-  float F = clamp(.62 + 3. * slope, 0., 1.);  // gentle sheen, more see-through water
-  vec3 col = mix(under, refl, F);
+  // raised relief is worn and polished, so it catches more light
+  vec4 a = texture2D(txt, fit(uv, rise.x)); vec4 b = texture2D(txt, fit(uv, rise.y));
+  float relief = clamp(rise.x * a.r + rise.y * b.g + dot(frise, texture2D(fig, uv).rgb), 0., 1.);
+  alb = mix(alb, gold, relief * .4);
+  alb *= .9 + .2 * g;
 
-  // submerged letters, seen through (and warped by) the moving water; blurrier when deeper
-  // (warped by a water wobble only, not the surface normal, so the letters' own slopes
-  //  never shift a ghost copy of them)
-  vec2 wob = vec2(sin(uv.y * 26. + uv.x * 9. + t * 1.9), cos(uv.x * 21. - uv.y * 7. - t * 1.5)) * .005;
-  float e1 = emerge(rise.x), e2 = emerge(rise.y);
-  vec4 a = texture2D(txt, lay(uv + wob * (.4 + 2. * (1. - rise.x)), rise.x, 0.));
-  vec4 b = texture2D(txt, lay(uv + wob * (.4 + 2. * (1. - rise.y)), rise.y, 1.3));
-  float sub = mix(a.b * 1.6, a.r, rise.x) * smoothstep(.0, .55, rise.x) * (1. - e1)
-            + mix(b.a * 1.6, b.g, rise.y) * smoothstep(.0, .55, rise.y) * (1. - e2);
-  col = mix(col, vec3(.86, .94, .96), clamp(sub, 0., 1.) * .55);
-
-  // risen letters: solid polished liquid metal
-  // water film grades smoothly into metal up the sides of the letters
-  float lm = clamp(e1 * smoothstep(.1, .7, texture2D(txt, lay(uv, rise.x, 0.)).r)
-                 + e2 * smoothstep(.1, .7, texture2D(txt, lay(uv, rise.y, 1.3)).g), 0., 1.);
-  col = mix(col, chrome(rv), lm);
-
-  col *= vec3(.94, 1., 1.04);                 // cool watery tint
-  col = col / (1. + col * .35) * 1.3;         // soften blown-out highlights
+  float fill = clamp(dot(n, normalize(vec3(.6, -.4, .7))), 0., 1.);   // soft bounce light
+  vec3 col = alb * (.20 + 1.15 * pow(dif, 1.3) + .25 * fill);
+  col += vec3(1., .78, .52) * sp * (.25 + .45 * dust + .35 * relief) * (.55 + .9 * g);
+  col *= vec3(.97, 1.02, .97);                               // a touch of green overall
   gl_FragColor = vec4(col, 1.);
 }`;
 
@@ -147,17 +118,29 @@ void main(){
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
   const U = n => gl.getUniformLocation(prog, n);
-  const uRes = U('res'), uT = U('t'), uMouse = U('mouse'), uRise = U('rise');
+  const uRes = U('res'), uDpr = U('dpr'), uRise = U('rise'), uFrise = U('frise');
   shared.hasGL = true;
   document.documentElement.classList.add('gl');
 
-  // ---- letter masks: draw the words, blur them into soft height fields ----
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
-                        [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
-    gl.texParameteri(gl.TEXTURE_2D, k, v);
-  gl.uniform1i(U('txt'), 0);
+  // ---- relief masks: draw the words and figures, blur them into soft height fields ----
+  function makeTex(unit, name) {
+    const t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                          [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
+      gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.uniform1i(U(name), unit);
+    return t;
+  }
+  const texTxt = makeTex(0, 'txt'), texFig = makeTex(1, 'fig'), texFigW = makeTex(2, 'figw');
+
+  function upload(unit, t, W, H, data) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  }
 
   function boxBlur(src, w, h, r) {             // 3 box passes each way ≈ gaussian
     r = Math.max(1, Math.round(r));
@@ -181,88 +164,108 @@ void main(){
     return a;
   }
 
+  const ss = x => x * x * (3 - 2 * x);
+  const dome = (m, lo) => Math.sqrt(ss(Math.max(0, Math.min(1, (m - lo) / (1 - lo)))));  // rounded relief profile
+  const skirt = (m, g) => { const v = ss(Math.min(1, m * g)); return v * v; };            // soft stretch around it
+
   // gothic title font; try others with ?font=grenze or ?font=pirata
   const gothic = GOTHIC_FONTS[new URLSearchParams(location.search).get('font')] || GOTHIC_FONTS.unifraktur;
 
-  function buildLetters() {
+  function buildRelief() {
     const W = Math.min(1100, innerWidth), k = W / innerWidth, H = Math.round(innerHeight * k);
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d', { willReadFrequently: true });
-    const box = Math.min(innerWidth * .92, 1100) * k;          // same layout as the SVG title
-    const top = (H - box * .32) / 2;
-    const font = `"${gothic.family}", "Helvetica Neue", Helvetica, Arial, serif`;
-    function mask(text, size, weight, spacing, baseline, fam = font) {
-      ctx.clearRect(0, 0, W, H);
-      ctx.font = `${weight} ${size}px ${fam}`;
-      ctx.fillStyle = '#fff';
-      const ws = [...text].map(ch => ctx.measureText(ch).width);
-      let x = (W - (ws.reduce((p, q) => p + q, 0) + spacing * (text.length - 1))) / 2;
-      [...text].forEach((ch, i) => { ctx.fillText(ch, x, baseline); x += ws[i] + spacing; });
+    const alpha = () => {
       const d = ctx.getImageData(0, 0, W, H).data, m = new Float32Array(W * H);
       for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] / 255;
       return m;
+    };
+    const pack = (chs, fn) => {                // 4 channels, flipped (GL origin is bottom-left)
+      const out = new Uint8Array(W * H * 4);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, o = ((H - 1 - y) * W + x) * 4;
+        for (let ch = 0; ch < 4; ch++) out[o + ch] = chs[ch] ? 255 * fn[ch](chs[ch][i]) : 0;
+      }
+      return out;
+    };
+
+    // words, laid out like the SVG title
+    const box = Math.min(innerWidth * .92, 1100) * k;
+    const top = (H - box * .32) / 2;
+    function text(str, size, g, spacing, baseline) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.font = `${g.weight} ${size}px "${g.family}", "Helvetica Neue", Helvetica, Arial, serif`;
+      ctx.fillStyle = '#fff';
+      const ws = [...str].map(ch => ctx.measureText(ch).width);
+      let x = (W - (ws.reduce((p, q) => p + q, 0) + spacing * (str.length - 1))) / 2;
+      [...str].forEach((ch, i) => { ctx.fillText(ch, x, baseline); x += ws[i] + spacing; });
+      return alpha();
     }
     const tSize = box * .17, sSize = box * .05;
-    const t1 = mask('Her Triplets', tSize, gothic.weight, box * .006, top + box * .175);
+    const t1 = text('Her Triplets', tSize, gothic, box * .006, top + box * .175);
     // subtitle in the most legible gothic so it reads clearly at a small size
-    const sub = GOTHIC_FONTS.grenze;
-    const s1 = mask('by Ingrid Huang', sSize, sub.weight, box * .012, top + box * .268, `"${sub.family}", serif`);
+    const s1 = text('by Ingrid Huang', sSize, GOTHIC_FONTS.grenze, box * .012, top + box * .268);
     const tA = boxBlur(t1.slice(), W, H, tSize * .025), tB = boxBlur(t1, W, H, tSize * .12);
-    const sA = boxBlur(s1.slice(), W, H, sSize * .045),  sB = boxBlur(s1, W, H, sSize * .4);
-    const out = new Uint8Array(W * H * 4);
-    // store the rounded letter profile itself, so 8-bit steps aren't amplified in the shader
-    const ss = x => x * x * (3 - 2 * x);
-    const dome = (m, lo) => Math.sqrt(ss(Math.max(0, Math.min(1, (m - lo) / (1 - lo)))));
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x, o = ((H - 1 - y) * W + x) * 4;        // flip: GL origin is bottom-left
-      out[o] = 255 * dome(tA[i], .3);
-      out[o + 1] = 255 * dome(sA[i], .25);
-      // concave meniscus skirt, shaped here (before 8-bit storage) to keep it smooth
-      const sk = (m, g) => { const v = ss(Math.min(1, m * g)); return 255 * v * v; };
-      out[o + 2] = sk(tB[i], 2.2);
-      out[o + 3] = sk(sB[i], 3.5);
-    }
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, out);
-  }
-  buildLetters();
-  // rebuild once the gothic font is ready
-  Promise.all([...new Set([gothic, GOTHIC_FONTS.grenze])].map(g =>
-    new FontFace(g.family, `url(${g.src})`, { weight: String(g.weight) }).load().then(f => document.fonts.add(f))))
-    .then(buildLetters, buildLetters);
-  let rebuild;
-  addEventListener('resize', () => { clearTimeout(rebuild); rebuild = setTimeout(buildLetters, 200); });
-  const mouse = { x: -9, y: -9, tx: -9, ty: -9 }; // off-screen until the pointer moves
-  addEventListener('pointermove', e => {
-    if (mouse.x < -1) { mouse.x = e.clientX / innerWidth; mouse.y = 1 - e.clientY / innerHeight; }
-    mouse.tx = e.clientX / innerWidth; mouse.ty = 1 - e.clientY / innerHeight; });
+    const sA = boxBlur(s1.slice(), W, H, sSize * .045), sB = boxBlur(s1, W, H, sSize * .4);
+    upload(0, texTxt, W, H, pack([tA, sA, tB, sB],
+      [m => dome(m, .3), m => dome(m, .25), m => skirt(m, 2.2), m => skirt(m, 3.5)]));
 
+    // figures, drawn from the same silhouettes as the SVGs, at their on-screen positions
+    const narrow = [], wide = [];
+    document.querySelectorAll('.figure svg').forEach(svg => {
+      const r = svg.getBoundingClientRect();
+      const sc = Math.min(r.width / 200, r.height / 520) * k;
+      const ox = (r.left + r.width / 2) * k - 100 * sc, oy = (r.top + r.height / 2) * k - 260 * sc;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+      ctx.setTransform(sc, 0, 0, sc, ox, oy);
+      ctx.fillStyle = '#fff';
+      ctx.fill(new Path2D(svg.querySelector('path').getAttribute('d')));
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const m = alpha(), size = r.height * k;
+      narrow.push(boxBlur(m.slice(), W, H, size * .018));
+      wide.push(boxBlur(m, W, H, size * .06));
+    });
+    upload(1, texFig, W, H, pack([...narrow, null], [m => dome(m, .2), m => dome(m, .2), m => dome(m, .2)]));
+    upload(2, texFigW, W, H, pack([...wide, null], [m => skirt(m, 2), m => skirt(m, 2), m => skirt(m, 2)]));
+    dirty = true;
+  }
+
+  let dirty = true, last = '';
   function resize() {
-    const scale = Math.min(devicePixelRatio || 1, 2); // full resolution for crisp highlights
+    const scale = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.floor(innerWidth * scale);
     canvas.height = Math.floor(innerHeight * scale);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform1f(uDpr, scale);
+    dirty = true;
   }
-  addEventListener('resize', resize); resize();
+  resize();
+  buildRelief();
+  let rebuild;
+  addEventListener('resize', () => { resize(); clearTimeout(rebuild); rebuild = setTimeout(buildRelief, 200); });
+  // rebuild once the gothic fonts are ready
+  Promise.all([...new Set([gothic, GOTHIC_FONTS.grenze])].map(g =>
+    new FontFace(g.family, `url(${g.src})`, { weight: String(g.weight) }).load().then(f => document.fonts.add(f))))
+    .then(buildRelief, buildRelief);
 
-  const t0 = performance.now();
+  // static sheet: only redraw when the relief changes (scrolling) or the window resizes
   (function frame() {
-    mouse.x += (mouse.tx - mouse.x) * .06;
-    mouse.y += (mouse.ty - mouse.y) * .06;
-    gl.uniform2f(uRes, canvas.width, canvas.height);
-    gl.uniform1f(uT, (performance.now() - t0) / 1000);
-    gl.uniform2f(uMouse, mouse.x, mouse.y);
-    gl.uniform2f(uRise, shared.rise[0], shared.rise[1]);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const key = shared.rise.concat(shared.fig).map(x => x.toFixed(3)).join();
+    if (dirty || key !== last) {
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform2f(uRise, shared.rise[0], shared.rise[1]);
+      gl.uniform3f(uFrise, shared.fig[0], shared.fig[1], shared.fig[2]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      last = key; dirty = false;
+    }
     requestAnimationFrame(frame);
   })();
 })();
 
-/* ---------- rising from / sinking into the water ----------
-   Every element stays in place on screen. "Depth" (0 = at the surface, 1 = deep)
-   controls how it looks: deeper means smaller, fainter, blurrier and more warped
-   by the moving water above it. */
+/* ---------- scroll timeline ----------
+   With WebGL: the words flatten back into the bronze while the figures press up out of it.
+   Without WebGL (fallback): SVG title and figures rise from / sink into the page, where
+   "depth" (0 = surface, 1 = deep) makes them smaller, fainter, blurrier and warped. */
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 scrollTo(0, 0);
 
@@ -308,8 +311,8 @@ scrollTo(0, 0);
   });
   // with WebGL the words are rendered in the water itself; the SVG title is only a fallback
   const titles = shared.hasGL ? [] : items.filter(i => i.kind !== 'figure');
+  const figuresSVG = shared.hasGL ? [] : items.filter(i => i.kind === 'figure');
   const starts = [...document.querySelectorAll('.title-svg .depth')].map(el => +el.dataset.start || 0);
-  const figures = items.filter(i => i.kind === 'figure');
 
   function render(it, d, s) {
     const L = it.L, el = it.el;
@@ -345,18 +348,17 @@ scrollTo(0, 0);
     // 1–2) after a beat of pure water, the words float up from the deep
     // 3)   scrolling sinks the words back down while the figures float up
     const sink = easeIn(clamp(P / .45));
-    starts.forEach((st, i) => {
-      const up = reduce ? 1 : ease(clamp((ms - st) / 5000));
-      shared.rise[i] = 1 - Math.max(1 - up, sink);
-    });
+    // in bronze the words are already pressed into the sheet when the page opens
+    starts.forEach((st, i) => { shared.rise[i] = 1 - sink; });
     titles.forEach(it => {
       const up = reduce ? 1 : ease(clamp((ms - it.start) / 5000));
       render(it, Math.max(1 - up, sink), s);
     });
-    figures.forEach((it, i) => {
+    for (let i = 0; i < 3; i++) {
       const up = ease(clamp((P - .04 - i * .12) / .6));
-      render(it, 1 - up, s);
-    });
+      shared.fig[i] = up;
+      if (figuresSVG[i]) render(figuresSVG[i], 1 - up, s);
+    }
     requestAnimationFrame(frame);
   })(performance.now());
 })();

@@ -1,7 +1,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* fallback if WebGL is unavailable (on html, so it sits beneath the water canvas) */
-html { background: radial-gradient(120% 90% at 30% 20%, #cfe3e6 0%, #6f8a90 50%, #2a3b42 100%) fixed #5b7378; }
+html { background: radial-gradient(120% 90% at 30% 20%, #9c7a52 0%, #4a3a28 50%, #1d1a14 100%) fixed #3a2f22; }
 
 body {
   min-height: 100vh;
@@ -36,7 +36,7 @@ body {
 }
 
 .title-svg { width: min(92vw, 1100px); height: auto; overflow: visible; }
-.gl .title-svg { opacity: 0; } /* WebGL renders the words as liquid metal instead */
+.gl .title-svg, .gl .figure svg { opacity: 0; } /* WebGL renders words and figures in the bronze instead */
 /* Contourless text: flat translucent fill only — no stroke, no outline, no shadow. */
 .title-svg text {
   fill: rgba(236, 252, 255, .92);
