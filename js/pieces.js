@@ -4,35 +4,37 @@
    then its accessories appear. Drag the look off the figure to take the piece back.
 
    To add a piece: put its images in assets/pieces/<id>/ and add an entry below. Layer boxes
-   are in figure units: the figure is 100 wide × 334 tall (head top 0, soles 334). */
+   are in figure units: the figure is 100 wide × 334 tall (head top 0, soles 334). They come
+   from registering the fit drawing's croquis onto the template the page figures are traced
+   from, so each layer sits exactly where it is in the drawing. */
 const PIECES = [
   {
     id: '01',
     piece: 'assets/pieces/01/piece.webp',          // the origami piece as folded
-    // the fitted look: the dress first, then the accessories that appear after it
+    // the fitted look, exactly as in the fit drawing: the garment first, then the accessories
     fit: [
-      { src: 'assets/pieces/01/dress.webp',    x: 12.5,  y: 28.44,  w: 69.05, h: 183.28, rot: 0 },
-      { src: 'assets/pieces/01/hair.webp',     x: 35.43, y: -1.26,  w: 28.37, h: 22.26,  rot: 0 },
-      { src: 'assets/pieces/01/bracelet.webp', x: 87.05, y: 123.03, w: 6.29,  h: 16.55,  rot: 10.55 },
-      { src: 'assets/pieces/01/shoes.webp',    x: 44.88, y: 242.96, w: 21.73, h: 92.66,  rot: 11.52 },
+      { src: 'assets/pieces/01/dress.webp',    x: 6.49, y: 19.84, w: 71.68, h: 190.26 },
+      { src: 'assets/pieces/01/hair.webp',     x: 32.72, y: -3.71, w: 29.75, h: 23.34 },
+      { src: 'assets/pieces/01/bracelet.webp', x: 85.82, y: 112.39, w: 7.85, h: 20.66 },
+      { src: 'assets/pieces/01/shoes.webp',    x: 40.16, y: 256.79, w: 19.63, h: 83.67 },
     ],
   },
   {
     id: '02',
     piece: 'assets/pieces/02/piece.webp',
     fit: [
-      { src: 'assets/pieces/02/dress.webp',    x: -50.52, y: 48.48, w: 136.56, h: 240.56, rot: 0.0 },
-      { src: 'assets/pieces/02/hair.webp',     x: 36.6, y: -3.84, w: 26.03, h: 34.38, rot: 0.0 },
-      { src: 'assets/pieces/02/shoes.webp',    x: 44.18, y: 265.14, w: 15.79, h: 64.74, rot: 11.52 },
+      { src: 'assets/pieces/02/dress.webp',    x: -56.76, y: 43.97, w: 141.49, h: 249.23 },
+      { src: 'assets/pieces/02/hair.webp',     x: 35.94, y: -2.99, w: 27.24, h: 35.98 },
+      { src: 'assets/pieces/02/shoes.webp',    x: 43.06, y: 280.19, w: 14.23, h: 58.34 },
     ],
   },
   {
     id: '03',
     piece: 'assets/pieces/03/piece.webp',
     fit: [
-      { src: 'assets/pieces/03/dress.webp',    x: -1.75, y: 52.35, w: 91.25, h: 234.0, rot: 0.0 },
-      { src: 'assets/pieces/03/hair.webp',     x: 36.24, y: -1.08, w: 27.91, h: 31.79, rot: 0.0 },
-      { src: 'assets/pieces/03/shoes.webp',    x: 37.04, y: 274.99, w: 27.01, h: 60.11, rot: 11.52 },
+      { src: 'assets/pieces/03/dress.webp',    x: -6.77, y: 46.86, w: 95.75, h: 242.91 },
+      { src: 'assets/pieces/03/hair.webp',     x: 35.54, y: -0.71, w: 29.15, h: 33.2 },
+      { src: 'assets/pieces/03/shoes.webp',    x: 37.97, y: 287.96, w: 24.29, h: 54.05 },
     ],
   },
 ];
@@ -54,11 +56,17 @@ const PIECES = [
 
   // ---- layout ----
   const S = () => window.PaperScene;
-  function stoneSlot(i, n) {                         // pieces share the well, top to bottom
-    const w = S().well, slotH = w.h / n, ar = items[i].el.naturalWidth / items[i].el.naturalHeight || .38;
-    let h = slotH * .9, wd = h * ar;
-    if (wd > w.w * .88) { wd = w.w * .88; h = wd / ar; }
-    return { x: w.x + (w.w - wd) / 2, y: w.y + slotH * i + (slotH - h) / 2, w: wd, h };
+  // pieces lie stacked in the well, each at full size, a little askew like a loose pile
+  const PILE = [[0, 0, 0], [-7, 9, -4], [8, -6, 3.5], [-4, -10, -2], [6, 12, 2.5]];
+  function pieceSize(it) {
+    const w = S().well, ar = it.el.naturalWidth / it.el.naturalHeight || .38;
+    let h = w.h * .9, wd = h * ar;
+    if (wd > w.w * .9) { wd = w.w * .9; h = wd / ar; }
+    return { w: wd, h };
+  }
+  function stoneSlot(it, i) {
+    const w = S().well, { w: wd, h } = pieceSize(it), [dx, dy, rot] = PILE[i % PILE.length];
+    return { x: w.x + (w.w - wd) / 2 + dx, y: w.y + (w.h - h) / 2 + dy, w: wd, h, rot };
   }
   const setBox = (el, r) => Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
   function figureFrame(f) {                          // the figure's 100 × 334 unit box, in .paper px
@@ -71,10 +79,14 @@ const PIECES = [
     const inStone = items.filter(it => it.where === 'stone');
     items.forEach(it => {
       if (it.where === 'stone') {
-        S().stone.appendChild(it.el); setBox(it.el, stoneSlot(inStone.indexOf(it), inStone.length));
+        const i = inStone.indexOf(it), r = stoneSlot(it, i);
+        S().stone.appendChild(it.el); setBox(it.el, r);
+        it.el.style.transform = `rotate(${r.rot}deg)`;
+        it.el.style.zIndex = inStone.length - i;               // the first piece lies on top
       } else if (it.where === 'paper') {
-        const pr = S().paper.getBoundingClientRect(), r = stoneSlot(0, 1);
+        const pr = S().paper.getBoundingClientRect(), r = pieceSize(it);
         S().paper.appendChild(it.el);
+        it.el.style.transform = it.el.style.zIndex = '';
         setBox(it.el, { x: it.u * pr.width - r.w / 2, y: it.v * pr.height - r.h / 2, w: r.w, h: r.h });
       } else if (it.look) {
         setBox(it.look, figureFrame(S().figures[it.fig]));
@@ -91,7 +103,6 @@ const PIECES = [
       const e = img(L.src, k === 0 ? 'layer garment' : 'layer accessory');
       Object.assign(e.style, {
         left: L.x + '%', top: (L.y / 334 * 100) + '%', width: L.w + '%', height: (L.h / 334 * 100) + '%',
-        transform: `rotate(${L.rot}deg)`,
       });
       look.appendChild(e);
     });
@@ -144,18 +155,21 @@ const PIECES = [
   function startDrag(it, e, rect) {
     e.preventDefault();
     dragLayer.appendChild(it.el);
+    it.el.style.transform = it.el.style.zIndex = '';
     setBox(it.el, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
     it.el.classList.add('lifted');
     drag = { it, dx: e.clientX - rect.left, dy: e.clientY - rect.top, w: rect.width, h: rect.height, id: e.pointerId };
   }
   items.forEach(it => it.el.addEventListener('pointerdown', e => {
     if (e.button && e.button !== 0) return;
-    startDrag(it, e, it.el.getBoundingClientRect());
+    // lift it at its own (unrotated) size, centred where it lies
+    const b = it.el.getBoundingClientRect(), w = it.el.offsetWidth, h = it.el.offsetHeight;
+    startDrag(it, e, { left: b.left + (b.width - w) / 2, top: b.top + (b.height - h) / 2, width: w, height: h });
   }));
 
   function takeOff(it, e) {                          // pick the look back up as the folded piece
     if (e.button && e.button !== 0) return;
-    const r = stoneSlot(0, 1);
+    const r = pieceSize(it);
     removeLook(it);
     it.where = 'paper';
     startDrag(it, e, { left: e.clientX - r.w / 2, top: e.clientY - r.h * .35, width: r.w, height: r.h });
