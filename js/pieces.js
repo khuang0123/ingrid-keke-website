@@ -17,6 +17,24 @@ const PIECES = [
       { src: 'assets/pieces/01/shoes.webp',    x: 44.88, y: 242.96, w: 21.73, h: 92.66,  rot: 11.52 },
     ],
   },
+  {
+    id: '02',
+    piece: 'assets/pieces/02/piece.webp',
+    fit: [
+      { src: 'assets/pieces/02/dress.webp',    x: -50.52, y: 48.48, w: 136.56, h: 240.56, rot: 0.0 },
+      { src: 'assets/pieces/02/hair.webp',     x: 36.6, y: -3.84, w: 26.03, h: 34.38, rot: 0.0 },
+      { src: 'assets/pieces/02/shoes.webp',    x: 44.18, y: 265.14, w: 15.79, h: 64.74, rot: 11.52 },
+    ],
+  },
+  {
+    id: '03',
+    piece: 'assets/pieces/03/piece.webp',
+    fit: [
+      { src: 'assets/pieces/03/dress.webp',    x: -1.75, y: 52.35, w: 91.25, h: 234.0, rot: 0.0 },
+      { src: 'assets/pieces/03/hair.webp',     x: 36.24, y: -1.08, w: 27.91, h: 31.79, rot: 0.0 },
+      { src: 'assets/pieces/03/shoes.webp',    x: 37.04, y: 274.99, w: 27.01, h: 60.11, rot: 11.52 },
+    ],
+  },
 ];
 
 (function () {
