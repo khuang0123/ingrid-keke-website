@@ -9,56 +9,47 @@
 precision highp float;
 uniform vec2 res; uniform float t; uniform vec2 mouse; uniform float scroll;
 
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  f = f*f*f*(f*(f*6.-15.)+10.); // quintic: smooth normals
-  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x),
-             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
-}
-float sdRoundBox(vec2 p, vec2 b, float r){
-  vec2 q = abs(p) - b + r;
-  return length(max(q, 0.)) + min(max(q.x, q.y), 0.) - r;
-}
+float sabs(float x, float k){ return sqrt(x*x + k); } // smooth |x|: sharp but clean creases
 
-// liquid surface height: big slow folds + a rippling rim along the screen edge
+// liquid surface: iteratively warped flow gives long curving folds like poured silk/metal
 float height(vec2 s){
-  float tt = t * .35;
-  vec2 p = s + vec2(0., scroll * .35);
-  vec2 q = p;
-  q += .30 * vec2(sin(q.y*1.4 + tt*.9), cos(q.x*1.2 - tt*.7));
-  q += .15 * vec2(noise(q*1.3 + tt*.3) - .5, noise(q*1.3 - tt*.3 + 4.) - .5) * 2.;
-
-  float h = 0.;
-  h += sin(q.x*1.7 + q.y*0.8 + tt) * .50;
-  h += sin(q.y*2.2 - q.x*1.4 - tt*.8) * .35;
-  h += sin(q.x*3.1 + q.y*2.6 + tt*1.3) * .12;
-  h += (noise(q*1.1 + tt*.15) - .5) * 1.1;
+  float tt = t * .18;
+  vec2 p = (s + vec2(0., scroll * .35)) * 1.3;
+  for (int i = 1; i < 7; i++) {
+    float fi = float(i);
+    p.x += .55 / fi * sin(fi * p.y * .9 + tt + .3 * fi) + .25;
+    p.y += .45 / fi * cos(fi * p.x * .8 + tt * 1.1 + .5 * fi) - .15;
+  }
+  float h = .5 * (sin(p.x * .9) + cos(p.y * .8)) + .14 * sin(p.x * 2.1 + p.y * 1.3);
 
   // mouse ripple
   vec2 m = (mouse - .5) * vec2(res.x/res.y, 1.);
   float d = length(s - m);
-  h += sin(d*30. - t*3.) * exp(-d*6.) * .06;
+  h += sin(d*40. - t*3.) * exp(-d*9.) * .012;
 
-  // folded rim hugging a rounded frame, like the edge of a liquid-metal pool
-  vec2 hb = vec2(.5*res.x/res.y, .5);
-  float e = sdRoundBox(s, hb - .035, .09);
-  float wob = .5 + .5*sin(s.y*5. + s.x*3. + tt*1.1) * sin(s.x*4. - s.y*2. - tt*.7);
-  h += exp(-abs(e + .012*sin(s.y*9. + tt*2.)) * 26.) * (.55 + .5*wob);
-  h += smoothstep(-.02, .02, e) * .6;
+  // rippling rim along a rounded (superellipse) frame — smooth, no corner seams
+  vec2 hb = vec2(.5*res.x/res.y, .5) - .025;
+  vec2 a = abs(s) / hb;
+  float e = (pow(pow(a.x, 8.) + pow(a.y, 8.), 1./8.) - 1.) * .5;
+  e += .005 * sin(s.y*8. + tt*2.) + .005 * sin(s.x*7. - tt*1.6);
+  h += .07 * exp(-sabs(e, .00003) * 70.);
   return h;
 }
 
 vec3 env(vec3 r){
-  vec3 dark  = vec3(.07, .12, .15);
-  vec3 light = vec3(.86, .95, .97);
-  vec3 c = mix(dark, light, smoothstep(-.75, .75, r.y*.9 + r.x*.35));
-  // soft-box highlights
-  c += vec3(1.)            * pow(max(dot(r, normalize(vec3(-.55, .55, .62))), 0.), 36.) * 1.1;
-  c += vec3(.85, .97, 1.)  * pow(max(dot(r, normalize(vec3( .65,-.35, .65))), 0.), 22.) * .55;
-  c += vec3(.75, .92, 1.)  * pow(max(dot(r, normalize(vec3( .10, .80, .55))), 0.), 60.) * .6;
-  // faint studio banding for the chrome feel
-  c *= .88 + .12 * sin(r.x*8. + r.y*5.);
+  vec3 dark  = vec3(.16, .22, .26);
+  vec3 mid   = vec3(.48, .58, .62);
+  vec3 light = vec3(.80, .89, .92);
+  float g = r.y*.85 + r.x*.4;
+  vec3 c = mix(dark, mid, smoothstep(-.8, -.05, g));
+  c = mix(c, light, smoothstep(.05, .7, g));
+  // crisp soft-box highlights
+  c += vec3(1.)           * smoothstep(.90, .94, dot(r, normalize(vec3(-.55, .55, .62))));
+  c += vec3(.86, .97, 1.) * smoothstep(.92, .955, dot(r, normalize(vec3( .65,-.35, .65)))) * .8;
+  c += vec3(.90, .98, 1.) * exp(-abs(r.y - .30) * 60.) * .8;   // thin horizon line
+  // dark streaks that trace the flow
+  c *= 1. - .80 * exp(-abs(r.x + .26) * 22.);
+  c *= 1. - .60 * exp(-abs(r.y + .28) * 22.);
   return c;
 }
 
@@ -66,30 +57,26 @@ void main(){
   vec2 uv = gl_FragCoord.xy / res;
   vec2 s = (gl_FragCoord.xy - .5*res) / res.y;
 
-  float ep = 1.5 / res.y;
-  float h  = height(s);
+  float ep = 1. / res.y;
   float hx = height(s + vec2(ep, 0.)) - height(s - vec2(ep, 0.));
   float hy = height(s + vec2(0., ep)) - height(s - vec2(0., ep));
-  vec3 n = normalize(vec3(-hx, -hy, 2.*ep / .13));
+  vec3 n = normalize(vec3(-hx, -hy, 2.*ep / .55));
 
-  vec3 r = reflect(vec3(0., 0., -1.), n);
-  vec3 refl = env(r);
+  vec3 refl = env(reflect(vec3(0., 0., -1.), n));
 
-  // what lies beneath: a pale aqua body seen through the surface
-  vec2 refr = uv + n.xy * .08;
-  vec3 under = mix(vec3(.30, .48, .54), vec3(.62, .78, .80), refr.y);
-  under = mix(under, vec3(.46, .52, .66), smoothstep(.2, 1., refr.x) * .25);
-  float caust = pow(1. - abs(noise(refr*9. + t*.25) * 2. - 1.), 8.);
-  under += vec3(.75, 1., 1.) * caust * .10;
+  // clear aqua water beneath, glimpsed through the flatter parts
+  vec2 refr = uv + n.xy * .1;
+  vec3 under = mix(vec3(.40, .62, .66), vec3(.82, .94, .95), refr.y);
 
   float slope = 1. - n.z;
-  float F = clamp(.38 + 6. * slope, 0., 1.);  // flat = see-through, folds = mirror
+  float F = clamp(.78 + 3. * slope, 0., 1.);  // mostly liquid mirror, a little see-through
   vec3 col = mix(under, refl, F);
 
-  col *= vec3(.94, 1., 1.03);                 // cool watery tint
-  col = mix(col, vec3(dot(col, vec3(.333))), .15); // keep it silvery
-  col *= 1. - .25 * dot(uv - .5, uv - .5);
-
+  col *= vec3(.94, 1., 1.04);                 // cool watery tint
+  col = col / (1. + col * .35) * 1.3;         // soften blown-out highlights
+  // calm the brightest glare behind the centred title so the text stays legible
+  float centre = exp(-dot(s * vec2(.9, 2.2), s * vec2(.9, 2.2)) * 3.);
+  col = mix(col, min(col, vec3(.66, .76, .80)), centre * .7);
   gl_FragColor = vec4(col, 1.);
 }`;
 
@@ -115,11 +102,13 @@ void main(){
 
   const U = n => gl.getUniformLocation(prog, n);
   const uRes = U('res'), uT = U('t'), uMouse = U('mouse'), uScroll = U('scroll');
-  const mouse = { x: .5, y: .5, tx: .5, ty: .5 };
-  addEventListener('pointermove', e => { mouse.tx = e.clientX / innerWidth; mouse.ty = 1 - e.clientY / innerHeight; });
+  const mouse = { x: -9, y: -9, tx: -9, ty: -9 }; // off-screen until the pointer moves
+  addEventListener('pointermove', e => {
+    if (mouse.x < -1) { mouse.x = e.clientX / innerWidth; mouse.y = 1 - e.clientY / innerHeight; }
+    mouse.tx = e.clientX / innerWidth; mouse.ty = 1 - e.clientY / innerHeight; });
 
   function resize() {
-    const scale = Math.min(devicePixelRatio || 1, 1.5) * .8; // keep it light
+    const scale = Math.min(devicePixelRatio || 1, 2); // full resolution for crisp highlights
     canvas.width = Math.floor(innerWidth * scale);
     canvas.height = Math.floor(innerHeight * scale);
     gl.viewport(0, 0, canvas.width, canvas.height);
