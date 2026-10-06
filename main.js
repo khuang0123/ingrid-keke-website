@@ -7,14 +7,14 @@
   const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
   const fs = `
 precision highp float;
-uniform vec2 res; uniform float t; uniform vec2 mouse; uniform float scroll;
+uniform vec2 res; uniform float t; uniform vec2 mouse;
 
 float sabs(float x, float k){ return sqrt(x*x + k); } // smooth |x|: sharp but clean creases
 
 // liquid surface: iteratively warped flow gives long curving folds like poured silk/metal
 float height(vec2 s){
   float tt = t * .18;
-  vec2 p = (s + vec2(0., scroll * .35)) * 1.3;
+  vec2 p = s * 1.3;
   for (int i = 1; i < 7; i++) {
     float fi = float(i);
     p.x += .55 / fi * sin(fi * p.y * .9 + tt + .3 * fi) + .25;
@@ -95,7 +95,7 @@ void main(){
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
   const U = n => gl.getUniformLocation(prog, n);
-  const uRes = U('res'), uT = U('t'), uMouse = U('mouse'), uScroll = U('scroll');
+  const uRes = U('res'), uT = U('t'), uMouse = U('mouse');
   const mouse = { x: -9, y: -9, tx: -9, ty: -9 }; // off-screen until the pointer moves
   addEventListener('pointermove', e => {
     if (mouse.x < -1) { mouse.x = e.clientX / innerWidth; mouse.y = 1 - e.clientY / innerHeight; }
@@ -116,7 +116,6 @@ void main(){
     gl.uniform2f(uRes, canvas.width, canvas.height);
     gl.uniform1f(uT, (performance.now() - t0) / 1000);
     gl.uniform2f(uMouse, mouse.x, mouse.y);
-    gl.uniform1f(uScroll, scrollY / innerHeight);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     requestAnimationFrame(frame);
   })();
@@ -127,29 +126,45 @@ setTimeout(() => {
   document.querySelectorAll('.line').forEach(el => el.classList.add('go'));
 }, 1000);
 
-/* ---------- figures: emerge as user scrolls ---------- */
+/* ---------- scroll timeline: title sinks back down, then the figures surface ---------- */
+// Nothing moves across the screen: everything stays in place and only grows/shrinks
+// (rises/sinks) through the depth of the water.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+scrollTo(0, 0);
+
 (function () {
-  const section = document.getElementById('figures');
-  const figs = [...section.querySelectorAll('.figure')];
+  const hero = document.querySelector('.hero');
+  const figs = [...document.querySelectorAll('.figure')];
   const ease = x => 1 - Math.pow(1 - x, 3);
   const clamp = x => Math.max(0, Math.min(1, x));
 
-  function update() {
-    const rect = section.getBoundingClientRect();
-    const start = innerHeight * .45; // figures are on screen (still deep) before they start rising
-    const span = innerHeight * 1.35;
-    const prog = clamp((start - rect.top) / span);
+  // depth 0 = at the surface, 1 = deep underwater
+  function depth(el, d) {
+    el.style.opacity = 1 - d;
+    el.style.transform = `scale(${1 - .85 * d})`;
+    el.style.filter = `blur(${d * 10}px) brightness(${1 - .4 * d})`;
+  }
 
+  function update() {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    const P = max > 0 ? clamp(scrollY / max) : 0;
+
+    // title sinks away during the first part of the scroll
+    const q = ease(clamp(P / .22));
+    depth(hero, q);
+    hero.style.visibility = q >= 1 ? 'hidden' : '';
+
+    // figures surface one after another
+    const prog = clamp((P - .18) / .78);
     figs.forEach(fig => {
       const delay = parseFloat(fig.dataset.delay) || 0;
       const p = clamp((prog - delay * .6) / .5);
       const e = ease(p);
-      fig.style.opacity = e;
-      // rise from the depths toward the surface: grow, sharpen, brighten, waver slightly
-      const sc = .15 + .85 * e + Math.sin(p * Math.PI) * .03 * (p > .8 ? 1 : 0);
+      depth(fig, 1 - e);
+      // slight waver while ascending, and a tiny swell as it breaks the surface
+      const sc = .15 + .85 * e + (p > .8 ? Math.sin(p * Math.PI) * .03 : 0);
       const sk = Math.sin(p * 9) * 2 * (1 - e);
       fig.style.transform = `scale(${sc}) skewX(${sk}deg)`;
-      fig.style.filter = `blur(${(1 - e) * 10}px) brightness(${.6 + .4 * e})`;
       fig.firstElementChild.classList.toggle('on', p >= 1);
     });
   }

@@ -9,7 +9,8 @@
 <body>
 <canvas id="water" aria-hidden="true"></canvas>
 
-<main>
+<!-- Everything floats on a fixed layer above the water; scrolling only drives the animation. -->
+<main class="layer">
   <section class="hero">
     <h1 class="title"><span class="line l1">Her Triplets</span></h1>
     <p class="subtitle"><span class="line l2">by Ingrid Huang</span></p>
@@ -73,6 +74,7 @@
     </div>
   </section>
 </main>
+<div class="scroll-space" aria-hidden="true"></div>
 
 <script src="main.js"></script>
 </body>
