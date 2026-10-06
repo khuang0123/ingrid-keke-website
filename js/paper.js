@@ -343,6 +343,14 @@
     geo = { top, offset: y, rodRest: top + D * .62 - D * .8, rodH: D * 2.4,
             stoneX: (vw - pw) / 2 + sx - smg, stoneY: top + sy - smg, stoneW: sw + 2 * smg };
     place();
+
+    // share the layout with js/pieces.js: figures in .paper coords, the well in .inkstone coords
+    window.PaperScene = {
+      paper, stone,
+      figures: [1, 3, 5].map(k => ({ cx: x + fx0 + (fx1 - fx0) * k / 6, top: fy, h: fh })),
+      well: { x: smg + sw * .12, y: smg + sh * .06, w: sw * .76, h: sh * .86 },
+    };
+    dispatchEvent(new Event('paperscene'));
   }
 
   // ---- scroll: the paper is pulled up from below while the paperweight comes down ----

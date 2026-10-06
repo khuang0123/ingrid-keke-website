@@ -40,6 +40,34 @@ body { min-height: 100vh; overflow-x: hidden; }
   pointer-events: none;
 }
 
+/* origami pieces (js/pieces.js) */
+.piece, .look, .figure-hint { position: absolute; }
+.piece {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .45));
+  transition: filter .2s;
+}
+.piece.lifted { cursor: grabbing; filter: drop-shadow(0 14px 16px rgba(0, 0, 0, .35)); }
+.drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+.look { pointer-events: none; }
+.look .layer {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transform-origin: 50% 50%;
+}
+.look .garment { filter: drop-shadow(0 2px 3px rgba(40, 25, 10, .22)); }
+.figure-hint {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 250, 235, .9), rgba(255, 250, 235, 0));
+  pointer-events: none;
+}
+
 /* the page scrolls only to drive the paper */
 .scroll-space { height: 250vh; }
 
