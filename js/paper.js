@@ -1,6 +1,6 @@
 /* ---------- 宣纸: a sheet of rice paper pulled up over the bronze as you scroll ----------
    A round bronze paperweight (镇纸) carved with the seal comes down from the top to rest
-   across it, an inkstone (砚台) slides in from the right to its left edge, and on the paper
+   across it, an inkstone (砚台) slides in from the left to its left edge, and on the paper
    are three fashion croquis silhouettes in 毛笔 brush strokes.
    Paper and paperweight are each painted once into a canvas (re-painted on resize);
    scrolling only slides them. */
@@ -181,7 +181,7 @@
     ctx.fillStyle = ends; ctx.fillRect(x0, y0, len, D);
 
     // carved seal: square frame + letters; lit lower lip, dark patina in the groove
-    const S = D * .76, seal = { x: cx - S / 2, y: cy - S / 2, w: S, h: S };
+    const S = D * .84, seal = { x: cx - S / 2, y: cy - S / 2, w: S, h: S };
     const carve = (style, dy) => {
       ctx.strokeStyle = style;
       ctx.lineWidth = S * .03; SealScript.roundRect(ctx, SealScript.inset(seal, -S * .04 + dy * 0), S * .03);
@@ -350,28 +350,29 @@
     const D = Math.min(vh * .095, pw * .07);
     const below = D * 2.1, avail = vh - top - below;               // paper area under the paperweight
     const sw = Math.min(pw * .2, avail * .62), sh = Math.min(avail * .86, sw * 1.55);
-    const sx = pw * .035, sy = below + (avail - sh) * .45;          // inkstone, in paper coords
+    const sx = pw * .012, sy = below + (avail - sh) * .45;          // inkstone, in paper coords
     const fh = Math.min(avail * .9, pw * .5);
     const fy = y + below + (avail - fh) * .45;
     const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
     [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
 
     // paperweight, in its own canvas: it rests across the top centre of the paper
+    const RD = D * .7;                                            // a slimmer rod
     const len = Math.min(pw * .5, D * 8), wm = D * 1.2;
     sizeCanvas(wcanvas, weightCtx, len + 2 * wm, D * 2.4, dpr);
     weight.style.width = (len + 2 * wm) + 'px';
     ctx = weightCtx;
-    paintRod(wm + len / 2, D * .8, len, D);
+    paintRod(wm + len / 2, D * .8, len, RD);
     ctx = paperCtx;
 
-    // inkstone, in its own canvas: it slides in from the right to rest at the paper's left edge
+    // inkstone, in its own canvas: it slides in from the left to rest at the paper's left edge
     const smg = sw * .2;
     sizeCanvas(scanvas, stoneCtx, sw + 2 * smg, sh + 2 * smg, dpr);
     ctx = stoneCtx; seed = 11;
     paintInkstone(smg, smg, sw, sh);
     ctx = paperCtx;
 
-    geo = { top, offset: y, rodRest: top + D * .95 - D * .8, rodH: D * 2.4,
+    geo = { top, offset: y, rodRest: top + D * .62 - D * .8, rodH: D * 2.4,
             stoneX: (vw - pw) / 2 + sx - smg, stoneY: top + sy - smg, stoneW: sw + 2 * smg };
     place();
   }
@@ -393,8 +394,8 @@
     const wy = geo.rodRest - (1 - p) * (geo.rodRest + geo.rodH + 20);
     weight.style.transform = `translate(-50%, ${wy}px)`;
     weight.style.visibility = p <= 0 ? 'hidden' : 'visible';
-    // the inkstone slides in from beyond the right edge to the paper's left edge
-    const sx = geo.stoneX + (1 - p) * (innerWidth - geo.stoneX + 30);
+    // the inkstone slides in from beyond the left edge to the paper's left edge
+    const sx = geo.stoneX - (1 - p) * (geo.stoneX + geo.stoneW + 30);
     stone.style.transform = `translate(${sx}px, ${geo.stoneY}px)`;
     stone.style.visibility = p <= 0 ? 'hidden' : 'visible';
   }
