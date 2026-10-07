@@ -13,7 +13,7 @@ const PIECES = [
     piece: 'assets/pieces/01/piece.webp',          // the origami piece as folded
     // the fitted look, exactly as in the fit drawing: the garment first, then the accessories
     fit: [
-      { src: 'assets/pieces/01/dress.webp',    x: 7.11, y: 20.67, w: 70.44, h: 188.81 },
+      { src: 'assets/pieces/01/dress.webp',    x: 6.9, y: 20.87, w: 70.65, h: 188.61 },
       { src: 'assets/pieces/01/hair.webp',     x: 32.93, y: -3.5, w: 29.34, h: 22.93 },
       { src: 'assets/pieces/01/bracelet.webp', x: 86.03, y: 112.6, w: 7.44, h: 20.25 },
       { src: 'assets/pieces/01/shoes.webp',    x: 40.37, y: 257.0, w: 19.22, h: 83.26 },
@@ -23,7 +23,7 @@ const PIECES = [
     id: '02',
     piece: 'assets/pieces/02/piece.webp',
     fit: [
-      { src: 'assets/pieces/02/dress.webp',    x: -56.15, y: 44.58, w: 139.86, h: 247.81 },
+      { src: 'assets/pieces/02/dress.webp',    x: -56.35, y: 44.58, w: 140.27, h: 248.01 },
       { src: 'assets/pieces/02/hair.webp',     x: 36.14, y: -2.58, w: 26.63, h: 35.37 },
       { src: 'assets/pieces/02/shoes.webp',    x: 43.26, y: 280.8, w: 13.82, h: 57.53 },
     ],
@@ -32,7 +32,7 @@ const PIECES = [
     id: '03',
     piece: 'assets/pieces/03/piece.webp',
     fit: [
-      { src: 'assets/pieces/03/dress.webp',    x: -6.16, y: 47.47, w: 94.54, h: 241.7 },
+      { src: 'assets/pieces/03/dress.webp',    x: -6.37, y: 47.47, w: 94.33, h: 241.29 },
       { src: 'assets/pieces/03/hair.webp',     x: 35.74, y: -0.51, w: 28.75, h: 32.39 },
       { src: 'assets/pieces/03/shoes.webp',    x: 38.17, y: 288.16, w: 23.89, h: 53.65 },
     ],
