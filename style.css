@@ -23,6 +23,9 @@ body { min-height: 100vh; overflow-x: hidden; }
   pointer-events: none;
 }
 .paper canvas, .weight canvas, .inkstone canvas { display: block; }
+/* a figure steps back when it wears a look, so the garment and hair lead */
+.paper canvas.figure { position: absolute; transition: opacity .9s ease; }
+.paper canvas.figure.dressed { opacity: .28; }
 .inkstone {
   position: fixed;
   top: 0;

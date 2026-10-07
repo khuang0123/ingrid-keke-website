@@ -13,28 +13,28 @@ const PIECES = [
     piece: 'assets/pieces/01/piece.webp',          // the origami piece as folded
     // the fitted look, exactly as in the fit drawing: the garment first, then the accessories
     fit: [
-      { src: 'assets/pieces/01/dress.webp',    x: 6.49, y: 19.84, w: 71.68, h: 190.26 },
-      { src: 'assets/pieces/01/hair.webp',     x: 32.72, y: -3.71, w: 29.75, h: 23.34 },
-      { src: 'assets/pieces/01/bracelet.webp', x: 85.82, y: 112.39, w: 7.85, h: 20.66 },
-      { src: 'assets/pieces/01/shoes.webp',    x: 40.16, y: 256.79, w: 19.63, h: 83.67 },
+      { src: 'assets/pieces/01/dress.webp',    x: 7.11, y: 20.67, w: 70.44, h: 188.81 },
+      { src: 'assets/pieces/01/hair.webp',     x: 32.93, y: -3.5, w: 29.34, h: 22.93 },
+      { src: 'assets/pieces/01/bracelet.webp', x: 86.03, y: 112.6, w: 7.44, h: 20.25 },
+      { src: 'assets/pieces/01/shoes.webp',    x: 40.37, y: 257.0, w: 19.22, h: 83.26 },
     ],
   },
   {
     id: '02',
     piece: 'assets/pieces/02/piece.webp',
     fit: [
-      { src: 'assets/pieces/02/dress.webp',    x: -56.76, y: 43.97, w: 141.49, h: 249.23 },
-      { src: 'assets/pieces/02/hair.webp',     x: 35.94, y: -2.99, w: 27.24, h: 35.98 },
-      { src: 'assets/pieces/02/shoes.webp',    x: 43.06, y: 280.19, w: 14.23, h: 58.34 },
+      { src: 'assets/pieces/02/dress.webp',    x: -56.15, y: 44.58, w: 139.86, h: 247.81 },
+      { src: 'assets/pieces/02/hair.webp',     x: 36.14, y: -2.58, w: 26.63, h: 35.37 },
+      { src: 'assets/pieces/02/shoes.webp',    x: 43.26, y: 280.8, w: 13.82, h: 57.53 },
     ],
   },
   {
     id: '03',
     piece: 'assets/pieces/03/piece.webp',
     fit: [
-      { src: 'assets/pieces/03/dress.webp',    x: -6.77, y: 46.86, w: 95.75, h: 242.91 },
-      { src: 'assets/pieces/03/hair.webp',     x: 35.54, y: -0.71, w: 29.15, h: 33.2 },
-      { src: 'assets/pieces/03/shoes.webp',    x: 37.97, y: 287.96, w: 24.29, h: 54.05 },
+      { src: 'assets/pieces/03/dress.webp',    x: -6.16, y: 47.47, w: 94.54, h: 241.7 },
+      { src: 'assets/pieces/03/hair.webp',     x: 35.74, y: -0.51, w: 28.75, h: 32.39 },
+      { src: 'assets/pieces/03/shoes.webp',    x: 38.17, y: 288.16, w: 23.89, h: 53.65 },
     ],
   },
 ];
@@ -116,6 +116,7 @@ const PIECES = [
     // anyone already wearing a look on this figure goes back to the inkstone
     items.forEach(o => { if (o !== it && o.where === 'fit' && o.fig === fig) { removeLook(o, false); o.where = 'stone'; } });
     it.where = 'fit'; it.fig = fig;
+    S().figures[fig].el.classList.add('dressed');
     const look = it.look = buildLook(it, fig);
     const [garment, ...acc] = look.children;
     const target = garment.getBoundingClientRect();
@@ -145,6 +146,8 @@ const PIECES = [
   function removeLook(it, animate = true) {
     const look = it.look; it.look = null;
     if (!look) return;
+    if (it.fig != null && !items.some(o => o !== it && o.look && o.fig === it.fig))
+      S().figures[it.fig].el.classList.remove('dressed');
     if (!animate || reduce) return look.remove();
     look.style.pointerEvents = 'none';
     look.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).finished.then(() => look.remove());
@@ -198,7 +201,7 @@ const PIECES = [
     const h = document.createElement('div');
     h.className = 'figure-hint';
     setBox(h, figureFrame(S().figures[i]));
-    S().paper.querySelector('canvas').after(h);
+    S().paper.querySelector('canvas').after(h);      // beneath the figures
   }
 
   function endDrag(e) {

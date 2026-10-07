@@ -294,6 +294,7 @@
 
   // ---- layout + painting ----
   let geo = null;
+  const figCanvases = [];
   function sizeCanvas(cv, c, w, h, dpr) {
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     cv.style.width = w + 'px'; cv.style.height = h + 'px';
@@ -322,7 +323,18 @@
     const sw = Math.min(pw * .2, avail * .62), sh = fh;
     const sx = pw * .012, sy = fy - y - fh * .05;                   // inkstone, in paper coords
     const fx0 = sx + sw + pw * .04, fx1 = pw * .97;
-    [1, 3, 5].forEach(k => drawFigure(SILHOUETTE, x + fx0 + (fx1 - fx0) * k / 6, fy, fh, k));
+    // each figure gets its own canvas, so it can step back while it wears a look
+    const figs = [1, 3, 5].map((k, i) => {
+      const cx = x + fx0 + (fx1 - fx0) * k / 6, fw = fh * .55, left = cx - fw / 2, ftop = fy - fh * .04;
+      const cv = figCanvases[i] || (figCanvases[i] = Object.assign(document.createElement('canvas'), { className: 'figure' }));
+      sizeCanvas(cv, cv.getContext('2d'), fw, fh * 1.08, dpr);
+      Object.assign(cv.style, { left: left + 'px', top: ftop + 'px' });
+      ctx = cv.getContext('2d'); ctx.translate(-left, -ftop);
+      drawFigure(SILHOUETTE, cx, fy, fh, k);
+      return { cx, top: fy, h: fh, el: cv };
+    });
+    canvas.after(...figCanvases);                                  // just above the paper, below any looks
+    ctx = paperCtx;
 
     // paperweight, in its own canvas: it rests across the top centre of the paper
     const RD = D * .7;                                            // a slimmer rod
@@ -347,7 +359,7 @@
     // share the layout with js/pieces.js: figures in .paper coords, the well in .inkstone coords
     window.PaperScene = {
       paper, stone,
-      figures: [1, 3, 5].map(k => ({ cx: x + fx0 + (fx1 - fx0) * k / 6, top: fy, h: fh })),
+      figures: figs,
       well: { x: smg + sw * .12, y: smg + sh * .06, w: sw * .76, h: sh * .86 },
     };
     dispatchEvent(new Event('paperscene'));
